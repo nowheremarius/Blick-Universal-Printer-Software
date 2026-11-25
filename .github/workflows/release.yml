@@ -1,0 +1,33 @@
+name: Build Windows release
+
+on:
+  push:
+    branches:
+      - 'release/v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build and check executable
+        shell: pwsh
+        run: |
+          Remove-Item Blick.exe -ErrorAction SilentlyContinue
+          cmd /c 'build.bat <nul'
+          if (!(Test-Path Blick.exe)) { throw 'Build did not produce Blick.exe' }
+          $assembly = [Reflection.AssemblyName]::GetAssemblyName((Resolve-Path Blick.exe).Path)
+          if ($assembly.Name -ne 'Blick') { throw 'Unexpected assembly name' }
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME.Substring('release/'.Length)
+          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid release version' }
+          gh release create $tag ./Blick.exe --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Blick $tag" --notes "Windows scanner app for WIA devices. Download Blick.exe to scan to PDF, JPG or PNG. A WIA driver is required for your scanner."
