@@ -27,7 +27,7 @@ jobs:
         shell: pwsh
         run: |
           $compiler = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-          & $compiler /nologo /codepage:65001 /target:exe /out:ReleaseChecks.exe /main:Blick.ReleaseChecks /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:Microsoft.VisualBasic.dll Theme.cs Controls.cs Preview.cs Imaging.cs Scan.cs MainForm.cs tests/ReleaseChecks.cs
+          & $compiler /nologo /codepage:65001 /target:exe /out:ReleaseChecks.exe /main:Blick.ReleaseChecks /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:Microsoft.VisualBasic.dll Theme.cs Controls.cs Preview.cs Imaging.cs Scan.cs MainForm.cs ".\tests\ReleaseChecks.cs"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .\ReleaseChecks.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
