@@ -204,9 +204,9 @@ namespace Blick
             iZoomOut = Tool("zoomout", L.T("Уменьшить", "Zoom out"));
             iFit = Tool("fit", L.T("Показать целиком", "Fit to view"));
             iRotate = Tool("rotate", L.T("Повернуть страницу на 90°", "Rotate page 90°"));
-            iRepeat = Tool("repeat", L.T("Пересканировать страницу (Ctrl+R)", "Rescan the last page (Ctrl+R)"));
+            iRepeat = Tool("repeat", L.T("Заменить последний скан (Ctrl+R)", "Replace the last scan (Ctrl+R)"));
             iHistory = Tool("history", L.T("История сканов", "Scan history"));
-            iTrash = Tool("trash", L.T("Начать новый документ (файлы остаются в папке)", "Start a new document (files stay in the folder)"));
+            iTrash = Tool("trash", L.T("Начать новый документ. Файлы останутся в папке.", "Start a new document. Saved files stay in the folder."));
             rail.Resize += delegate { LayoutRail(); };
 
             BuildRight();
@@ -292,11 +292,11 @@ namespace Blick
             }
 
             sMerge = new SwitchRow(L.T("Объединять в один файл", "Merge into one file"), L.T("Все страницы — в один PDF", "All pages go into one PDF"));
-            sEnhance = new SwitchRow(L.T("Улучшать документ", "Enhance document"), L.T("Ровный лист и белый фон", "Straight page, clean white background"));
+            sEnhance = new SwitchRow(L.T("Улучшать документ", "Enhance document"), L.T("Выровнять страницу и осветлить фон", "Straighten the page and lighten the background"));
             sOcr = new SwitchRow(L.T("Распознавать текст", "Recognize text"), L.T("В PDF можно искать и копировать текст", "Text in the PDF becomes searchable"));
             sSplit = new SwitchRow(L.T("Разделять фото и чеки", "Split into objects"), L.T("Каждый чек или снимок на своей странице", "Save each receipt or photo as a separate page"));
             sDuplex = new SwitchRow(L.T("Две стороны вручную", "Manual duplex"), L.T("Сначала лицевые, потом оборотные", "Fronts first, then backs"));
-            sTimer = new SwitchRow(L.T("Сканировать по таймеру", "Scan on a timer"), L.T("Серия с паузой, чтобы сменить лист", "A series with a pause to swap sheets"));
+            sTimer = new SwitchRow(L.T("Сканировать по таймеру", "Scan on a timer"), L.T("Пауза между листами", "Pause between sheets"));
             sMerge.DisabledSub = L.T("Только для PDF", "PDF only");
             sOcr.DisabledSub = L.T("Только для PDF", "PDF only");
             switches = new SwitchRow[] { sMerge, sEnhance, sOcr, sSplit, sDuplex, sTimer };
@@ -313,7 +313,7 @@ namespace Blick
             tips.SetToolTip(bExpand, L.T("Развернуть панель", "Expand panel"));
             tips.SetToolTip(cPreview, L.T("Просмотр", "Preview"));
             tips.SetToolTip(cScan, L.T("Сканировать (Enter)", "Scan (Enter)"));
-            tips.SetToolTip(bPreview, L.T("Быстрый черновой скан, чтобы проверить, как лежит лист", "A quick draft scan to check how the sheet lies"));
+            tips.SetToolTip(bPreview, L.T("Посмотреть, как лежит лист, и выбрать область сканирования", "Preview the sheet and select the area to scan"));
             tips.SetToolTip(card, L.T("Нажмите на строку статуса, чтобы показать файл в папке", "Click the status line to show the file in its folder"));
 
             right.Controls.Add(tabs); right.Controls.Add(bCollapse);
@@ -351,8 +351,8 @@ namespace Blick
             sOcr.Changed += delegate
             {
                 st.Ocr = sOcr.Checked; SettingsChanged();
-                if (st.Ocr) SetStatus(L.T("Текст будет распознаваться после каждого скана (несколько секунд на страницу).",
-                    "Text will be recognized after each scan (a few seconds per page)."), 0);
+                if (st.Ocr) SetStatus(L.T("После каждого скана Blick добавит распознанный текст в PDF.",
+                    "After each scan, Blick adds any recognized text to the PDF."), 0);
             };
             sSplit.Changed += delegate { st.Split = sSplit.Checked; SettingsChanged(); };
             sDuplex.Changed += delegate
@@ -736,8 +736,8 @@ namespace Blick
                 if (show != null && show == previewScan) preview.Sel = cropN;
                 else preview.ClearSel();
             }
-            if (sel >= 0 && sel < pages.Count) { preview.SelectMode = 2; preview.Hint = L.T("Обведите мышкой область, чтобы обрезать страницу", "Drag to mark an area to crop the page"); }
-            else if (previewScan != null) { preview.SelectMode = 1; preview.Hint = L.T("Обведите мышкой область, чтобы сканировать только её", "Drag to mark the area to scan"); }
+            if (sel >= 0 && sel < pages.Count) { preview.SelectMode = 2; preview.Hint = L.T("Выделите часть страницы, которую хотите оставить", "Drag to select the part of the page to keep"); }
+            else if (previewScan != null) { preview.SelectMode = 1; preview.Hint = L.T("Выделите участок для сканирования", "Drag to select the area to scan"); }
             else { preview.SelectMode = 0; preview.Hint = null; }
             preview.Image = show;
             preview.Invalidate();
@@ -776,7 +776,7 @@ namespace Blick
             if (pages.Count == 0) return;
             ClearPages();
             RefreshAll();
-            SetStatus(L.T("Начат новый документ. Прошлые файлы остались в папке.", "Started a new document. Previous files stay in the folder."), 0);
+            SetStatus(L.T("Новый документ. Готовые сканы остались в папке.", "New document. Your scans are still in the folder."), 0);
         }
 
         void NewDocument()
@@ -909,7 +909,7 @@ namespace Blick
                 sel = -1;
                 preview.ResetView();
                 RefreshAll();
-                SetStatus(L.T("Черновик готов. Обведите область или жмите «Сканировать».", "Draft is ready. Mark an area or press “Scan”."), 0);
+                SetStatus(L.T("Выделите нужный участок или нажмите «Сканировать» для всего листа.", "Select an area or press “Scan” for the whole sheet."), 0);
                 return;
             }
 
@@ -1085,7 +1085,7 @@ namespace Blick
         void RepeatLast()
         {
             if (busy) return;
-            if (lastParams == null || lastAdded.Count == 0) { SetStatus(L.T("Пока нечего повторять — сначала отсканируйте.", "Nothing to repeat yet — scan something first."), 0); return; }
+            if (lastParams == null || lastAdded.Count == 0) { SetStatus(L.T("Сначала отсканируйте лист.", "Scan a sheet first."), 0); return; }
             StopSeries(null);
             bool merged = docPath != null;
             foreach (Page p in lastAdded)

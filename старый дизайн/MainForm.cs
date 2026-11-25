@@ -242,9 +242,9 @@ namespace Blick
             iZoomOut = Tool("zoomout", "Уменьшить");
             iFit = Tool("fit", "Показать целиком");
             iRotate = Tool("rotate", "Повернуть страницу на 90°");
-            iRepeat = Tool("repeat", "Пересканировать страницу (Ctrl+R)");
+            iRepeat = Tool("repeat", "Заменить последний скан (Ctrl+R)");
             iHistory = Tool("history", "История сканов");
-            iTrash = Tool("trash", "Начать новый документ (файлы остаются в папке)");
+            iTrash = Tool("trash", "Начать новый документ. Файлы останутся в папке.");
             rail.Resize += delegate { LayoutRail(); };
 
             BuildRight();
@@ -333,11 +333,11 @@ namespace Blick
             }
 
             sMerge = new SwitchRow("Объединять в один файл", "Все страницы — в один PDF");
-            sEnhance = new SwitchRow("Улучшать документ", "Ровный лист и белый фон");
+            sEnhance = new SwitchRow("Улучшать документ", "Выровнять страницу и осветлить фон");
             sOcr = new SwitchRow("Распознавать текст", "В PDF можно искать и копировать текст");
             sSplit = new SwitchRow("Разделять фото и чеки", "Каждый чек или снимок на своей странице");
             sDuplex = new SwitchRow("Две стороны вручную", "Сначала лицевые, потом оборотные");
-            sTimer = new SwitchRow("Сканировать по таймеру", "Серия с паузой, чтобы сменить лист");
+            sTimer = new SwitchRow("Сканировать по таймеру", "Пауза между листами");
             sMerge.DisabledSub = "Только для PDF";
             sOcr.DisabledSub = "Только для PDF";
             switches = new SwitchRow[] { sMerge, sEnhance, sOcr, sSplit, sDuplex, sTimer };
@@ -354,7 +354,7 @@ namespace Blick
             tips.SetToolTip(bExpand, "Развернуть панель");
             tips.SetToolTip(cPreview, "Просмотр");
             tips.SetToolTip(cScan, "Сканировать (Enter)");
-            tips.SetToolTip(bPreview, "Быстрый черновой скан, чтобы проверить, как лежит лист");
+            tips.SetToolTip(bPreview, "Посмотреть, как лежит лист, и выбрать область сканирования");
             tips.SetToolTip(card, "Нажмите на строку статуса, чтобы показать файл в папке");
 
             right.Controls.Add(tabs); right.Controls.Add(bCollapse);
@@ -390,7 +390,7 @@ namespace Blick
             sOcr.Changed += delegate
             {
                 st.Ocr = sOcr.Checked; SettingsChanged();
-                if (st.Ocr) SetStatus("Текст будет распознаваться после каждого скана (несколько секунд на страницу).", 0);
+                if (st.Ocr) SetStatus("После каждого скана Blick добавит распознанный текст в PDF.", 0);
             };
             sSplit.Changed += delegate { st.Split = sSplit.Checked; SettingsChanged(); };
             sDuplex.Changed += delegate
@@ -760,8 +760,8 @@ namespace Blick
                 if (show != null && show == previewScan) preview.Sel = cropN;
                 else preview.ClearSel();
             }
-            if (sel >= 0 && sel < pages.Count) { preview.SelectMode = 2; preview.Hint = "Обведите мышкой область, чтобы обрезать страницу"; }
-            else if (previewScan != null) { preview.SelectMode = 1; preview.Hint = "Обведите мышкой область, чтобы сканировать только её"; }
+            if (sel >= 0 && sel < pages.Count) { preview.SelectMode = 2; preview.Hint = "Выделите часть страницы, которую хотите оставить"; }
+            else if (previewScan != null) { preview.SelectMode = 1; preview.Hint = "Выделите участок для сканирования"; }
             else { preview.SelectMode = 0; preview.Hint = null; }
             preview.Image = show;
             preview.Invalidate();
@@ -800,7 +800,7 @@ namespace Blick
             if (pages.Count == 0) return;
             ClearPages();
             RefreshAll();
-            SetStatus("Начат новый документ. Прошлые файлы остались в папке.", 0);
+            SetStatus("Новый документ. Готовые сканы остались в папке.", 0);
         }
 
         void NewDocument()
@@ -933,7 +933,7 @@ namespace Blick
                 sel = -1;
                 preview.ResetView();
                 RefreshAll();
-                SetStatus("Черновик готов. Обведите область или жмите «Сканировать».", 0);
+                SetStatus("Выделите нужный участок или нажмите «Сканировать» для всего листа.", 0);
                 return;
             }
 
@@ -1109,7 +1109,7 @@ namespace Blick
         void RepeatLast()
         {
             if (busy) return;
-            if (lastParams == null || lastAdded.Count == 0) { SetStatus("Пока нечего повторять — сначала отсканируйте.", 0); return; }
+            if (lastParams == null || lastAdded.Count == 0) { SetStatus("Сначала отсканируйте лист.", 0); return; }
             StopSeries(null);
             bool merged = docPath != null;
             foreach (Page p in lastAdded)
