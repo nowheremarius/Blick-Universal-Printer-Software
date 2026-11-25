@@ -36,7 +36,7 @@ The source is chosen separately. The resolution buttons request 150, 300, 600 or
 - **Double-sided originals.** Enable **Manual duplex** and scan the fronts. Click **To backs**, turn the stack over and scan the backs. Blick pairs the two passes, reversing the order of the backs when using the feeder.
 - **Photos or receipts on the glass.** Leave space between the items and enable **Split into objects**. Use the full bed. Drawing a custom scan rectangle skips splitting. If Blick finds no separate items, it keeps the original image.
 - **A stack without a feeder.** Enable **Scan on a timer** and choose 5, 10 or 15 seconds between scans. Change the sheet during the countdown. Press Esc to stop the series.
-- **Searchable text.** Choose PDF and enable **Recognize text** before scanning. The PDF keeps the scanned image and adds the words Windows recognizes as a searchable layer. If no words are recognized, the image is still saved.
+- **Searchable text.** Choose PDF and enable **Recognize text** before scanning. The PDF keeps the scanned image and adds the words Windows recognizes as a searchable layer. If recognition stalls for two minutes on a page, Blick stops waiting and keeps the image without a text layer.
 
 ![The More tab with PDF, OCR, splitting, duplex and timer options](screenshots/more.png)
 
@@ -44,7 +44,7 @@ The source is chosen separately. The resolution buttons request 150, 300, 600 or
 
 Select a thumbnail to edit that page. The rotate button turns it 90°. To crop, drag over the part you want to keep and press Enter. Edits are saved back to the file. With no crop selected, Enter starts a scan.
 
-`Ctrl+R` or `F5` replaces the last scan using its original settings. If that scan used the feeder, reload the entire batch first. To keep the previous result, use **Scan** again instead.
+`Ctrl+R` or `F5` replaces the last scan using its original settings. If that scan used the feeder, reload the entire batch first. Blick keeps the previous pages until the replacement has been acquired and saved. For separate files, it writes the whole new batch before moving old files to the Recycle Bin. During an unfinished duplex pass, reload the same number of pages. To keep both scans, use **Scan** again.
 
 Delete removes the selected page. For a standalone page, its file goes to the Windows Recycle Bin. For a merged PDF, Blick rewrites the document with the remaining pages. Removing its last page sends the PDF to the Recycle Bin.
 
@@ -114,7 +114,7 @@ Blick сканирует документы, чеки и фотографии в
 - **Снять обе стороны листов.** Включить «Две стороны вручную», пропустить стопку лицевой стороной и нажать «К оборотным». Затем перевернуть стопку и отсканировать обороты. Blick чередует лицевые и оборотные страницы. При работе с автоподатчиком программа учитывает обратный порядок оборотов.
 - **Разложить на стекле несколько чеков или фото.** Оставить между ними промежутки, выбрать всё стекло и включить «Разделять фото и чеки». Если нарисовать рамку вручную, разделение пропускается. Если отдельных предметов найти не удалось, останется исходный скан.
 - **Снять пачку со стекла по таймеру.** Включить «Сканировать по таймеру» и выбрать паузу между сканами в 5, 10 или 15 секунд. Пока идёт отсчёт, поменять лист. Esc останавливает серию.
-- **Получить PDF с поиском.** До сканирования выбрать PDF и включить «Распознавать текст». Страница сохранит свой внешний вид. В программе для чтения PDF можно будет искать и выделять распознанные слова. Если Windows не распознает ни одного слова, изображение всё равно сохранится.
+- **Получить PDF с поиском.** До сканирования выбрать PDF и включить «Распознавать текст». Страница сохранит свой внешний вид. В программе для чтения PDF можно будет искать и выделять распознанные слова. Если распознавание страницы зависнет на две минуты, Blick завершит ожидание и сохранит изображение без текстового слоя.
 
 ![Дополнительные настройки. Здесь включаются общий PDF, распознавание текста, разделение, двусторонний режим и таймер](screenshots/more.png)
 
@@ -122,7 +122,7 @@ Blick сканирует документы, чеки и фотографии в
 
 Выбрать миниатюру внизу окна. Кнопка поворота разворачивает страницу на 90°. Для обрезки выделить мышью часть, которую нужно оставить, и нажать Enter. Изменения запишутся в файл. Если область обрезки не выделена, Enter запускает сканирование.
 
-`Ctrl+R` или `F5` заменяет последний скан с теми же настройками. Если через податчик прошла пачка, перед повтором нужно заново загрузить всю пачку. Чтобы сохранить прежний результат и сделать ещё один скан, нажать «Сканировать».
+`Ctrl+R` или `F5` заменяет последний скан с теми же настройками. Если через податчик прошла пачка, перед повтором нужно заново загрузить всю пачку. Старые страницы остаются на месте, пока замена не отсканирована и не записана. При сохранении в отдельные файлы Blick сначала записывает всю новую пачку и только потом отправляет старые файлы в корзину. Если двусторонний скан ещё не закончен, для повтора нужно загрузить столько же страниц. Чтобы оставить оба скана, нажать «Сканировать».
 
 Delete удаляет выбранную страницу. Если она сохранена отдельным файлом, он отправится в корзину Windows. В общем PDF Blick удалит страницу и перезапишет документ. Если страница была последней, сам PDF отправится в корзину.
 

@@ -845,7 +845,6 @@ namespace Blick
             if (forced != null) sp = forced.Clone();
             else if (isPreview) { sp = new ScanParams(); sp.Dpi = 150; }
             else sp = BuildParams();
-            if (!isPreview) lastParams = sp.Clone();
             SetBusy(true, isPreview, isPreview ? L.T("Готовлю предпросмотр…", "Preparing preview…") : L.T("Идёт сканирование…", "Scanning…"));
             Thread th = new Thread(delegate()
             {
@@ -887,7 +886,7 @@ namespace Blick
                     }
                 }
                 catch (Exception ex) { err = ex.Message; }
-                try { BeginInvoke((MethodInvoker)delegate { OnScanDone(res, words, err, sp, isPreview); }); }
+                try { BeginInvoke((MethodInvoker)delegate { OnScanDone(res, words, err, sp, isPreview, forced != null); }); }
                 catch { }
             });
             th.SetApartmentState(ApartmentState.STA);
@@ -895,7 +894,7 @@ namespace Blick
             th.Start();
         }
 
-        void OnScanDone(List<Bitmap> res, List<List<OcrWord>> words, string err, ScanParams sp, bool isPreview)
+        void OnScanDone(List<Bitmap> res, List<List<OcrWord>> words, string err, ScanParams sp, bool isPreview, bool repeat)
         {
             SetBusy(false, false, null);
             if (err != null) { if (series) StopSeries(null); SetStatus(err, 2); return; }
@@ -919,8 +918,22 @@ namespace Blick
             {
                 Page p = new Page(res[i], sp.Dpi);
                 if (words != null && i < words.Count) p.Words = words[i];
-                pages.Add(p); added.Add(p);
+                added.Add(p);
             }
+            if (repeat)
+            {
+                try { ReplaceLastScan(added); }
+                catch (Exception ex)
+                {
+                    foreach (Page p in added) p.Dispose();
+                    SetStatus(ex is InvalidDataException ? ex.Message : SaveError(ex), 2);
+                }
+                RefreshAll();
+                return;
+            }
+
+            pages.AddRange(added);
+            lastParams = sp.Clone();
             lastAdded = added;
             sel = pages.Count - 1;
             bool saved = false;
@@ -1087,24 +1100,76 @@ namespace Blick
             if (busy) return;
             if (lastParams == null || lastAdded.Count == 0) { SetStatus(L.T("Сначала отсканируйте лист.", "Scan a sheet first."), 0); return; }
             StopSeries(null);
-            bool merged = docPath != null;
-            foreach (Page p in lastAdded)
-            {
-                int idx = pages.IndexOf(p);
-                if (idx < 0) continue;
-                pages.RemoveAt(idx);
-                if (!merged && p.SavedPath != null) Recycle(p.SavedPath);
-                p.Dispose();
-            }
-            if (merged)
-            {
-                if (pages.Count > 0) { try { Pdf.Write(docPath, pages); } catch { } }
-                else { Recycle(docPath); docPath = null; }
-            }
-            lastAdded = new List<Page>();
-            sel = pages.Count - 1;
-            RefreshAll();
             DoScan(false, lastParams);
+        }
+
+        void ReplaceLastScan(List<Page> added)
+        {
+            bool pending = duplexPhase != 0;
+            if (pending && (added.Count != lastAdded.Count || lastAdded.Exists(p => p.SavedPath != null)))
+                throw new InvalidDataException(L.T("Для повтора загрузите столько же листов в текущем двустороннем скане.",
+                    "Reload the same number of sheets for the current duplex scan."));
+
+            List<Page> updated = new List<Page>();
+            foreach (Page page in pages)
+            {
+                int index = lastAdded.IndexOf(page);
+                if (index < 0) updated.Add(page);
+                else
+                {
+                    if (index < added.Count) updated.Add(added[index]);
+                    if (index == lastAdded.Count - 1 && added.Count > lastAdded.Count)
+                        updated.AddRange(added.GetRange(lastAdded.Count, added.Count - lastAdded.Count));
+                }
+            }
+
+            if (!pending && st.Format == 0 && st.Merge)
+            {
+                string path = docPath ?? NextName("pdf");
+                Pdf.Write(path, updated);
+                docPath = lastSaved = path;
+                foreach (Page p in updated) p.SavedPath = path;
+                History.Add(path, updated.Count);
+            }
+            else if (!pending)
+            {
+                SaveReplacementFiles(added);
+                foreach (Page p in lastAdded) Recycle(p.SavedPath);
+                lastSaved = added[added.Count - 1].SavedPath;
+            }
+            foreach (Page p in lastAdded) p.Dispose();
+            pages.Clear();
+            pages.AddRange(updated);
+            lastAdded = added;
+            sel = pages.IndexOf(added[added.Count - 1]);
+            preview.ResetView();
+            SetStatus(L.T("Последний скан заменён.", "Last scan replaced."), 1);
+        }
+
+        void SaveReplacementFiles(List<Page> added)
+        {
+            string ext = Ext();
+            try
+            {
+                foreach (Page p in added)
+                {
+                    string path = NextName(ext);
+                    string temp = Path.Combine(Path.GetDirectoryName(path), Guid.NewGuid().ToString("N") + "." + ext);
+                    try
+                    {
+                        SavePage(p, temp);
+                        File.Move(temp, path);
+                        p.SavedPath = path;
+                    }
+                    finally { if (File.Exists(temp)) File.Delete(temp); }
+                }
+            }
+            catch
+            {
+                foreach (Page p in added) if (p.SavedPath != null) Recycle(p.SavedPath);
+                throw;
+            }
+            foreach (Page p in added) History.Add(p.SavedPath, 1);
         }
 
         // правка страниц

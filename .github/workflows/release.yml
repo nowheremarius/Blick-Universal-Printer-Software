@@ -23,6 +23,14 @@ jobs:
           if (!(Test-Path Blick.exe)) { throw 'Build did not produce Blick.exe' }
           $assembly = [Reflection.AssemblyName]::GetAssemblyName((Resolve-Path Blick.exe).Path)
           if ($assembly.Name -ne 'Blick') { throw 'Unexpected assembly name' }
+      - name: Check failed writes, rescans and OCR timeout
+        shell: pwsh
+        run: |
+          $compiler = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          & $compiler /nologo /codepage:65001 /target:exe /out:ReleaseChecks.exe /main:Blick.ReleaseChecks /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:Microsoft.VisualBasic.dll Theme.cs Controls.cs Preview.cs Imaging.cs Scan.cs MainForm.cs tests/ReleaseChecks.cs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\ReleaseChecks.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Publish release
         shell: pwsh
         env:
@@ -30,4 +38,6 @@ jobs:
         run: |
           $tag = $env:GITHUB_REF_NAME.Substring('release/'.Length)
           if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid release version' }
-          gh release create $tag ./Blick.exe --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Blick $tag" --notes "Windows scanner app for WIA devices. Download Blick.exe to scan to PDF, JPG or PNG. A WIA driver is required for your scanner."
+          $notes = "docs/releases/$tag.md"
+          $notesArgs = if (Test-Path $notes) { @('--notes-file', $notes) } else { @('--generate-notes') }
+          gh release create $tag ./Blick.exe --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Blick $tag" @notesArgs

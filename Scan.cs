@@ -398,6 +398,26 @@ Write-Output (""LANG`t"" + $engine.RecognizerLanguage.LanguageTag)
 foreach ($line in $res.Lines) { foreach ($w in $line.Words) { $r = $w.BoundingRect; Write-Output ([string]::Format([Globalization.CultureInfo]::InvariantCulture, ""W`t{0}`t{1}`t{2}`t{3}`t{4}"", $r.X, $r.Y, $r.Width, $r.Height, $w.Text)) } }
 ";
 
+        internal static string ReadOutput(ProcessStartInfo info, int timeoutMs, out string errors)
+        {
+            using (Process process = Process.Start(info))
+            {
+                var timer = Stopwatch.StartNew();
+                var output = process.StandardOutput.ReadToEndAsync();
+                var error = process.StandardError.ReadToEndAsync();
+                if (!process.WaitForExit(timeoutMs) ||
+                    !System.Threading.Tasks.Task.WaitAll(new System.Threading.Tasks.Task[] { output, error },
+                        (int)Math.Max(0L, timeoutMs - timer.ElapsedMilliseconds)))
+                {
+                    try { if (!process.HasExited) process.Kill(); }
+                    catch (InvalidOperationException) { }
+                    throw new TimeoutException(L.T("Истекло время ожидания распознавания.", "Text recognition timed out."));
+                }
+                errors = error.Result;
+                return output.Result;
+            }
+        }
+
         public static List<OcrWord> Recognize(Bitmap full)
         {
             string dir = Path.Combine(Path.GetTempPath(), "Blick");
@@ -421,13 +441,12 @@ foreach ($line in $res.Lines) { foreach ($w in $line.Words) { $r = $w.BoundingRe
                 psi.RedirectStandardOutput = true;
                 psi.RedirectStandardError = true;
                 psi.StandardOutputEncoding = Encoding.UTF8;
-                using (Process p = Process.Start(psi))
+                string errors;
+                string output = ReadOutput(psi, 120000, out errors);
+                using (StringReader reader = new StringReader(output))
                 {
-                    string err = null;
-                    p.ErrorDataReceived += delegate(object s, DataReceivedEventArgs e) { if (e.Data != null && err == null) err = e.Data; };
-                    p.BeginErrorReadLine();
                     string line;
-                    while ((line = p.StandardOutput.ReadLine()) != null)
+                    while ((line = reader.ReadLine()) != null)
                     {
                         line = line.TrimStart('\uFEFF');
                         string[] parts = line.Split('\t');
@@ -448,8 +467,8 @@ foreach ($line in $res.Lines) { foreach ($w in $line.Words) { $r = $w.BoundingRe
                         else if (parts.Length >= 2 && parts[0] == "LANG") LastInfo = L.T("Распознавание: ", "Recognition: ") + parts[1];
                         else if (parts.Length >= 2 && parts[0] == "ERR") LastInfo = L.T("В Windows не установлен язык распознавания текста.", "No text recognition language is installed in Windows.");
                     }
-                    if (!p.WaitForExit(120000)) { try { p.Kill(); } catch { } }
-                    if (words.Count == 0 && err != null) LastInfo = L.T("Распознавание не сработало: ", "Text recognition failed: ") + err;
+                    if (words.Count == 0 && !string.IsNullOrWhiteSpace(errors))
+                        LastInfo = L.T("Распознавание не сработало: ", "Text recognition failed: ") + errors.Trim();
                 }
             }
             finally { try { File.Delete(png); } catch { } }

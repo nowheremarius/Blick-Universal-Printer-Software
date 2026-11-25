@@ -187,7 +187,21 @@ namespace Blick
 
         public static void Write(string path, IList<Page> pages)
         {
-            string tmp = path + ".tmp";
+            string tmp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                WriteTemporary(tmp, pages);
+                if (File.Exists(path)) File.Replace(tmp, path, null);
+                else File.Move(tmp, path);
+            }
+            finally
+            {
+                if (File.Exists(tmp)) File.Delete(tmp);
+            }
+        }
+
+        static void WriteTemporary(string tmp, IList<Page> pages)
+        {
             int n = pages.Count;
             bool anyText = false;
             foreach (Page p in pages) if (p.Words != null && p.Words.Count > 0) anyText = true;
@@ -248,8 +262,6 @@ namespace Blick
                 foreach (long o in offs) W(fs, o.ToString("D10", CultureInfo.InvariantCulture) + " 00000 n \n");
                 W(fs, "trailer\n<< /Size " + (total + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
             }
-            if (File.Exists(path)) File.Delete(path);
-            File.Move(tmp, path);
         }
     }
 
