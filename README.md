@@ -8,7 +8,7 @@ Blick is a Windows desktop app for scanning documents, receipts and photos. It c
 
 Download or clone the repository. On Windows, open the project folder and run `build.bat`. The script looks for the .NET Framework 4.x C# compiler in the 64-bit and 32-bit Framework folders and builds `Blick.exe` alongside the source files. Run that executable to use the version you just built.
 
-Turn on the scanner and make sure its WIA driver is installed. Blick looks for a device when it starts. If several scanners are available, it prefers one with Pantum in its name and otherwise uses the first scanner it finds. Click the device name at the top to search again after connecting a scanner. The gear opens the language and interface scale settings.
+Turn on the scanner and make sure its WIA driver is installed. Blick looks for a device when it starts. If several scanners are available, it prefers one uses the first scanner it finds. Click the device name at the top to search again after connecting a scanner. The gear opens the language and interface scale settings.
 
 ### Make a scan
 
@@ -84,7 +84,7 @@ Blick сканирует документы, чеки и фотографии в
 
 Скачать или клонировать репозиторий. В Windows открыть папку проекта и запустить `build.bat`. Скрипт ищет компилятор C# в папках 64- и 32-разрядной версии .NET Framework 4.x. После сборки рядом с исходниками появится `Blick.exe`. Запустить его.
 
-При старте Blick ищет подключённый сканер. Если их несколько, программа выбирает устройство с Pantum в названии. Если такого нет, берёт первый сканер из списка. Сканер можно подключить и после запуска. Чтобы повторить поиск, достаточно нажать на название устройства вверху окна. Через шестерёнку рядом меняются язык и масштаб интерфейса.
+При старте Blick ищет подключённый сканер. Если их несколько, программа выбирает первый сканер из списка. Сканер можно подключить и после запуска. Чтобы повторить поиск, достаточно нажать на название устройства вверху окна. Через шестерёнку рядом меняются язык и масштаб интерфейса.
 
 ### Как сделать скан
 
