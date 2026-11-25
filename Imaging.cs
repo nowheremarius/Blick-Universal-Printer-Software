@@ -1,4 +1,3 @@
-// Блик — страницы, PDF, обработка изображений
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -9,7 +8,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace Blik
+namespace Blick
 {
     class OcrWord
     {
@@ -127,7 +126,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- PDF (с невидимым текстовым слоем)
+    // PDF (с невидимым текстовым слоем)
     static class Pdf
     {
         static void W(Stream s, string text)
@@ -212,11 +211,11 @@ namespace Blik
                 {
                     int f0 = fontBase, f1 = fontBase + 1, f2 = fontBase + 2, f3 = fontBase + 3;
                     offs[f0 - 1] = fs.Position;
-                    W(fs, f0 + " 0 obj\n<< /Type /Font /Subtype /Type0 /BaseFont /BlikOCR /Encoding /Identity-H /DescendantFonts [" + f1 + " 0 R] /ToUnicode " + f3 + " 0 R >>\nendobj\n");
+                    W(fs, f0 + " 0 obj\n<< /Type /Font /Subtype /Type0 /BaseFont /BlickOCR /Encoding /Identity-H /DescendantFonts [" + f1 + " 0 R] /ToUnicode " + f3 + " 0 R >>\nendobj\n");
                     offs[f1 - 1] = fs.Position;
-                    W(fs, f1 + " 0 obj\n<< /Type /Font /Subtype /CIDFontType2 /BaseFont /BlikOCR /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor " + f2 + " 0 R /DW 500 /CIDToGIDMap /Identity >>\nendobj\n");
+                    W(fs, f1 + " 0 obj\n<< /Type /Font /Subtype /CIDFontType2 /BaseFont /BlickOCR /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor " + f2 + " 0 R /DW 500 /CIDToGIDMap /Identity >>\nendobj\n");
                     offs[f2 - 1] = fs.Position;
-                    W(fs, f2 + " 0 obj\n<< /Type /FontDescriptor /FontName /BlikOCR /Flags 4 /FontBBox [0 -200 1000 800] /ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 >>\nendobj\n");
+                    W(fs, f2 + " 0 obj\n<< /Type /FontDescriptor /FontName /BlickOCR /Flags 4 /FontBBox [0 -200 1000 800] /ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 >>\nendobj\n");
                     string cmap = ToUnicodeCMap();
                     offs[f3 - 1] = fs.Position;
                     W(fs, f3 + " 0 obj\n<< /Length " + cmap.Length + " >>\nstream\n" + cmap + "endstream\nendobj\n");
@@ -254,7 +253,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- улучшение документа
+    // улучшение документа
     static class Enhance
     {
         public static Bitmap Apply(Bitmap src)
@@ -396,7 +395,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- деление стола на отдельные объекты
+    // деление стола на отдельные объекты
     static class Splitter
     {
         // Возвращает null, если найден один объект (или ничего)

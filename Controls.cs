@@ -1,4 +1,3 @@
-// Блик — элементы интерфейса (жидкое стекло)
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,7 +8,7 @@ using System.Drawing.Text;
 using System.IO;
 using System.Windows.Forms;
 
-namespace Blik
+namespace Blick
 {
     // Базовый элемент: рисует себя в буфер с альфой поверх того, что под ним (см. Glass.Paint)
     class BaseCtl : Control, IAnimated, ISnapshot
@@ -288,7 +287,7 @@ namespace Blik
         }
     }
 
-    // Сегментированный переключатель (как «Board / List» на референсе)
+    // Сегментированный переключатель
     class ChipGroup : BaseCtl
     {
         public string[] Items;
@@ -474,7 +473,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- вкладки
+    // вкладки
     class TabBar : BaseCtl
     {
         public string[] Items;
@@ -525,7 +524,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- заголовок окна
+    // заголовок окна
     class TitleBar : BaseCtl
     {
         readonly MainForm form;
@@ -569,7 +568,6 @@ namespace Blik
         {
             float cy = Height / 2f;
             float x = Theme.D(16);
-            // плитка со знаком — как логотип в углу референса
             float tile = Theme.D(32);
             RectangleF tr = new RectangleF(x + 0.5f, cy - tile / 2f + 0.5f, tile - 1, tile - 1);
             Theme.FillRound(g, Color.FromArgb(150, 4, 8, 20), tr, Theme.D(10));
@@ -621,7 +619,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- шапка над предпросмотром
+    // шапка над предпросмотром
     class HeaderCtl : BaseCtl
     {
         public string InfoA = "—", InfoB = "—";
@@ -647,7 +645,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- карточка «куда сохранять»
+    // карточка «куда сохранять»
     class SaveCard : BaseCtl
     {
         public string FolderName = "";
@@ -724,7 +722,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- подсказки в тёмном стиле
+    // подсказки в тёмном стиле
     static class Tips
     {
         public static ToolTip Make()
@@ -748,7 +746,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- всплывающие окна (тоже стекло)
+    // всплывающие окна (тоже стекло)
     class PopupForm : GlassWindow
     {
         public bool SuppressClose;
@@ -812,7 +810,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- история
+    // история
     class HistoryList : BaseCtl
     {
         public List<History.Entry> Items = new List<History.Entry>();

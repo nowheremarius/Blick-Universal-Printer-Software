@@ -1,4 +1,3 @@
-// Блик — стекло, тема, шрифты, языки, анимация, иконки
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -10,7 +9,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace Blik
+namespace Blick
 {
     static class Program
     {
@@ -23,8 +22,31 @@ namespace Blik
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += delegate(object s, System.Threading.ThreadExceptionEventArgs e) { Report(e.Exception); };
             AppDomain.CurrentDomain.UnhandledException += delegate(object s, UnhandledExceptionEventArgs e) { Report(e.ExceptionObject as Exception); };
+            ImportPreviousSettings();
             FontLoader.Load();
             Application.Run(new MainForm());
+        }
+
+        static void ImportPreviousSettings()
+        {
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string previous = Path.Combine(appData, "Blik");
+            string current = Path.Combine(appData, "Blick");
+            foreach (string name in new string[] { "settings.ini", "history.txt" })
+            {
+                try
+                {
+                    string source = Path.Combine(previous, name);
+                    string target = Path.Combine(current, name);
+                    if (File.Exists(source) && !File.Exists(target))
+                    {
+                        Directory.CreateDirectory(current);
+                        File.Copy(source, target, false);
+                    }
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
         }
 
         static bool reporting;
@@ -32,7 +54,7 @@ namespace Blik
         {
             if (ex == null || reporting) return;
             reporting = true;
-            string log = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Blik"), "error.log");
+            string log = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Blick"), "error.log");
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(log));
@@ -42,8 +64,8 @@ namespace Blik
             try
             {
                 MessageBox.Show(
-                    L.T("Что-то пошло не так, но Blick продолжает работать.\n\n", "Something went wrong, but Blick keeps working.\n\n") + ex.Message +
-                    L.T("\n\nПодробности записаны в ", "\n\nDetails were saved to ") + log + L.T(" — их можно отправить Claude.", " — you can send them to Claude."),
+                    L.T("Ошибка в Blick.\n\n", "Blick encountered an error.\n\n") + ex.Message +
+                    L.T("\n\nЖурнал ошибок: ", "\n\nError log: ") + log,
                     "Blick", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch { }
@@ -51,7 +73,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- язык интерфейса
+    // язык интерфейса
     static class L
     {
         public static bool En;
@@ -103,7 +125,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- стекло
+    // стекло
     // Окно рисуется с настоящей прозрачностью: Windows 11 размывает всё, что под окном (акрил),
     // а мы поверх кладём полупрозрачные слои. Обычная GDI-отрисовка WinForms прозрачность не умеет,
     // поэтому каждый элемент рисует себя в собственный 32-битный буфер с альфой и копирует его в окно.
@@ -413,7 +435,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- шрифты
+    // шрифты
     static class FontLoader
     {
         static readonly PrivateFontCollection pfc = new PrivateFontCollection();
@@ -492,7 +514,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- тема (тёмное стекло, монохром)
+    // тема (тёмное стекло, монохром)
     static class Theme
     {
         public static float Dpi = 1f, Ui = 1f;
@@ -601,7 +623,7 @@ namespace Blik
             using (Pen pen = new Pen(c, width)) g.DrawPath(pen, p);
         }
 
-        // Тонкая рамка, которая светлее сверху и тает книзу — главный приём стекла на референсах
+        // Верхняя кромка рамки светлее нижней
         public static void Edge(Graphics g, RectangleF r, float rad, Color top, Color bottom)
         {
             if (r.Width < 2 || r.Height < 2) return;
@@ -636,7 +658,7 @@ namespace Blik
             using (SolidBrush b = new SolidBrush(c)) g.FillEllipse(b, cx - dia / 2f, cy - dia / 2f, dia, dia);
         }
 
-        // ---- текст (только GDI+: обычный GDI-текст на стекле становится прозрачным)
+        // текст (только GDI+: обычный GDI-текст на стекле становится прозрачным)
         static readonly StringFormat typo = StringFormat.GenericTypographic;
         static StringFormat Fmt(int align, bool vcenter, bool wrap, bool ellipsis)
         {
@@ -691,7 +713,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- анимация
+    // анимация
     interface IAnimated { bool Step(); }
 
     static class Anim
@@ -730,7 +752,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- иконки (квадрат 24×24)
+    // иконки (квадрат 24×24)
     static class Icons
     {
         static PointF[] P(params float[] xy)

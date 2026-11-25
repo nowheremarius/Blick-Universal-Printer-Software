@@ -1,4 +1,3 @@
-// Блик — главное окно
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,7 +9,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 
-namespace Blik
+namespace Blick
 {
     class MainForm : Form
     {
@@ -69,7 +68,7 @@ namespace Blik
             Theme.SetAccent(ParseHex(st.Accent, Theme.DefaultAccent));
             Theme.MakeFonts();
 
-            Text = "Блик";
+            Text = "Blick";
             FormBorderStyle = FormBorderStyle.None;
             DoubleBuffered = true;
             KeyPreview = true;
@@ -97,7 +96,7 @@ namespace Blik
             MinimumSize = new Size(Math.Min(D(860), wa.Width), Math.Min(D(600), wa.Height));
         }
 
-        // ------------------------------------------------ окно без рамки
+        // окно без рамки
         // Окну оставлены стили обычного окна (заголовок + рамка), чтобы Windows
         // проигрывала родные анимации открытия/сворачивания/разворачивания и работал Snap.
         // Саму рамку и заголовок убираем в WM_NCCALCSIZE — вся площадь окна остаётся клиентской.
@@ -206,7 +205,7 @@ namespace Blik
             else WindowState = FormWindowState.Maximized;
         }
 
-        // ------------------------------------------------ построение интерфейса
+        // построение интерфейса
         void BuildUi()
         {
             SuspendLayout();
@@ -243,7 +242,7 @@ namespace Blik
             iZoomOut = Tool("zoomout", "Уменьшить");
             iFit = Tool("fit", "Показать целиком");
             iRotate = Tool("rotate", "Повернуть страницу на 90°");
-            iRepeat = Tool("repeat", "Пересканировать последнее (Ctrl+R)");
+            iRepeat = Tool("repeat", "Пересканировать страницу (Ctrl+R)");
             iHistory = Tool("history", "История сканов");
             iTrash = Tool("trash", "Начать новый документ (файлы остаются в папке)");
             rail.Resize += delegate { LayoutRail(); };
@@ -336,8 +335,8 @@ namespace Blik
             sMerge = new SwitchRow("Объединять в один файл", "Все страницы — в один PDF");
             sEnhance = new SwitchRow("Улучшать документ", "Ровный лист и белый фон");
             sOcr = new SwitchRow("Распознавать текст", "В PDF можно искать и копировать текст");
-            sSplit = new SwitchRow("Делить на объекты", "Несколько чеков или фото → отдельные страницы");
-            sDuplex = new SwitchRow("Двусторонний вручную", "Сначала лицевые, потом оборотные");
+            sSplit = new SwitchRow("Разделять фото и чеки", "Каждый чек или снимок на своей странице");
+            sDuplex = new SwitchRow("Две стороны вручную", "Сначала лицевые, потом оборотные");
             sTimer = new SwitchRow("Сканировать по таймеру", "Серия с паузой, чтобы сменить лист");
             sMerge.DisabledSub = "Только для PDF";
             sOcr.DisabledSub = "Только для PDF";
@@ -487,7 +486,7 @@ namespace Blik
             LayoutRight();
         }
 
-        // ------------------------------------------------ настройки
+        // настройки
         static Color ParseHex(string hex, Color fallback)
         {
             int v;
@@ -551,7 +550,7 @@ namespace Blik
             {
                 BeginInvoke((MethodInvoker)delegate
                 {
-                    if (busy) { SetStatus("Масштаб сменится после сканирования — попробуйте ещё раз.", 0); return; }
+                    if (busy) { SetStatus("Масштаб можно сменить, когда закончится сканирование.", 0); return; }
                     st.ScaleIdx = i; st.Save();
                     ClosePopup();
                     Theme.Ui = SettingsPopup.Scales[i] / 100f;
@@ -576,7 +575,7 @@ namespace Blik
             hp.Show(this);
         }
 
-        // ------------------------------------------------ состояние
+        // состояние
         void ApplySettings()
         {
             if (st.Area == 3 && cropN.IsEmpty) st.Area = 0;
@@ -719,7 +718,7 @@ namespace Blik
             bScan.IconKind = series ? "stop" : (st.Timer ? "timer" : "scan");
             cScan.IconKind = bScan.IconKind;
             string sec;
-            if (busy && busyPreview) sec = "Смотрю…";
+            if (busy && busyPreview) sec = "Готовлю просмотр…";
             else if (duplexPhase == 1 && pages.Count > duplexStart) sec = "К оборотным";
             else if (duplexPhase == 2) sec = "Собрать";
             else sec = "Просмотр";
@@ -826,7 +825,7 @@ namespace Blik
             RefreshAll();
         }
 
-        // ------------------------------------------------ сканирование
+        // сканирование
         ScanParams BuildParams()
         {
             ScanParams sp = new ScanParams();
@@ -1012,7 +1011,7 @@ namespace Blik
             return "Не удалось сохранить: " + ex.Message;
         }
 
-        // ------------------------------------------------ двусторонний вручную
+        // двусторонний вручную
         bool HandleDuplex(List<Page> added, ScanParams sp)
         {
             if (duplexPhase == 0) { duplexPhase = 1; duplexStart = pages.Count - added.Count; }
@@ -1070,7 +1069,7 @@ namespace Blik
             RefreshAll();
         }
 
-        // ------------------------------------------------ серия по таймеру
+        // серия по таймеру
         void StartCountdown()
         {
             countdown = TimerSecs[Clamp(st.TimerIdx, 0, TimerSecs.Length - 1)];
@@ -1106,7 +1105,7 @@ namespace Blik
             if (was && msg != null) SetStatus(msg, 0);
         }
 
-        // ------------------------------------------------ повтор последнего
+        // повтор последнего
         void RepeatLast()
         {
             if (busy) return;
@@ -1132,7 +1131,7 @@ namespace Blik
             DoScan(false, lastParams);
         }
 
-        // ------------------------------------------------ правка страниц
+        // правка страниц
         void RotateCurrent()
         {
             if (busy) return;

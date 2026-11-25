@@ -1,4 +1,3 @@
-// Блик — элементы интерфейса
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -8,7 +7,7 @@ using System.Drawing.Text;
 using System.IO;
 using System.Windows.Forms;
 
-namespace Blik
+namespace Blick
 {
     class BaseCtl : Control, IAnimated
     {
@@ -315,7 +314,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- вкладки
+    // вкладки
     class TabBar : BaseCtl
     {
         public string[] Items;
@@ -367,7 +366,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- заголовок окна
+    // заголовок окна
     class TitleBar : BaseCtl
     {
         readonly MainForm form;
@@ -418,8 +417,8 @@ namespace Blik
             Theme.Dot(g, Theme.Accent, x + ring / 2f, cy, Theme.D(8));
             x += ring + Theme.D(12);
             TextFormatFlags fl = TextFormatFlags.NoPadding;
-            Size s1 = Theme.Measure(g, "блик", Theme.FontLogo);
-            TextRenderer.DrawText(g, "блик", Theme.FontLogo, new Point((int)x, (int)(cy - s1.Height / 2f)), Theme.Text, fl);
+            Size s1 = Theme.Measure(g, "Blick", Theme.FontLogo);
+            TextRenderer.DrawText(g, "Blick", Theme.FontLogo, new Point((int)x, (int)(cy - s1.Height / 2f)), Theme.Text, fl);
             x += s1.Width;
             Size s2 = Theme.Measure(g, ".", Theme.FontLogo);
             TextRenderer.DrawText(g, ".", Theme.FontLogo, new Point((int)x, (int)(cy - s1.Height / 2f)), Theme.Accent, fl);
@@ -455,7 +454,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- шапка над предпросмотром
+    // шапка над предпросмотром
     class HeaderCtl : BaseCtl
     {
         public string InfoA = "—", InfoB = "—";
@@ -481,7 +480,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- карточка «куда сохранять»
+    // карточка «куда сохранять»
     class SaveCard : BaseCtl
     {
         public string FolderName = "";
@@ -544,7 +543,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- всплывающие окна
+    // всплывающие окна
     class PopupForm : Form
     {
         public bool SuppressClose;
@@ -700,7 +699,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- история
+    // история
     class HistoryList : BaseCtl
     {
         public List<History.Entry> Items = new List<History.Entry>();

@@ -1,4 +1,3 @@
-// Блик — сканер, распознавание, история, настройки
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,7 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Collections.Concurrent;
 
-namespace Blik
+namespace Blick
 {
     class ScanException : Exception { public ScanException(string m) : base(m) { } }
 
@@ -115,7 +114,7 @@ namespace Blik
             return best;
         }
 
-        // ---------------------------------------------------------- постоянный поток сканера
+        // постоянный поток сканера
         // Все обращения к WIA идут через один долгоживущий STA-поток. Тогда подключение к сканеру
         // можно держать открытым между сканами: не нужно каждый раз заново искать устройство
         // и делать Connect — именно это и было долгим «думанием» перед сканом.
@@ -133,7 +132,7 @@ namespace Blik
                     {
                         foreach (Action x in queue.GetConsumingEnumerable()) { try { x(); } catch { } }
                     });
-                    worker.Name = "Blik scanner";
+                    worker.Name = "Blick scanner";
                     worker.SetApartmentState(ApartmentState.STA);
                     worker.IsBackground = true;
                     worker.Start();
@@ -373,7 +372,7 @@ namespace Blik
     }
 
 
-    // ---------------------------------------------------------------- распознавание текста (встроенный OCR Windows через PowerShell)
+    // распознавание текста (встроенный OCR Windows через PowerShell)
     static class Ocr
     {
         public static string LastInfo;
@@ -404,7 +403,7 @@ foreach ($line in $res.Lines) { foreach ($w in $line.Words) { $r = $w.BoundingRe
 
         public static List<OcrWord> Recognize(Bitmap full)
         {
-            string dir = Path.Combine(Path.GetTempPath(), "Blik");
+            string dir = Path.Combine(Path.GetTempPath(), "Blick");
             Directory.CreateDirectory(dir);
             string script = Path.Combine(dir, "ocr.ps1");
             File.WriteAllText(script, Script, new UTF8Encoding(true));
@@ -461,7 +460,7 @@ foreach ($line in $res.Lines) { foreach ($w in $line.Words) { $r = $w.BoundingRe
         }
     }
 
-    // ---------------------------------------------------------------- история
+    // история
     static class History
     {
         public class Entry
@@ -473,7 +472,7 @@ foreach ($line in $res.Lines) { foreach ($w in $line.Words) { $r = $w.BoundingRe
 
         static string FilePath
         {
-            get { return System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Blik", "history.txt"); }
+            get { return System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Blick", "history.txt"); }
         }
 
         public static List<Entry> Load()
@@ -523,7 +522,7 @@ foreach ($line in $res.Lines) { foreach ($w in $line.Words) { $r = $w.BoundingRe
         public static void Clear() { Save(new List<Entry>()); }
     }
 
-    // ---------------------------------------------------------------- пресеты
+    // пресеты
     class Preset
     {
         readonly string ru, en;
@@ -541,7 +540,7 @@ foreach ($line in $res.Lines) { foreach ($w in $line.Words) { $r = $w.BoundingRe
             new Preset("Паспорт", "ID", 0, 1, 2, 0, false, false, false) };
     }
 
-    // ---------------------------------------------------------------- настройки
+    // настройки
     class Settings
     {
         public int Source, ColorMode, DpiIdx = 1, Area, Format;
@@ -553,7 +552,7 @@ foreach ($line in $res.Lines) { foreach ($w in $line.Words) { $r = $w.BoundingRe
 
         static string FilePath
         {
-            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Blik", "settings.ini"); }
+            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Blick", "settings.ini"); }
         }
 
         public static Settings Load()
@@ -593,7 +592,7 @@ foreach ($line in $res.Lines) { foreach ($w in $line.Words) { $r = $w.BoundingRe
                         case "accent2": s.Accent = v; sawAccent2 = true; break;
                     }
                 }
-                if (!sawAccent2) s.Accent = "5835F3"; // новый цвет по умолчанию с референса
+                if (!sawAccent2) s.Accent = "5835F3";
             }
             catch { }
             return s;

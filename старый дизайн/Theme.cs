@@ -1,4 +1,3 @@
-// Блик — тема, шрифты, анимация, иконки
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -8,7 +7,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace Blik
+namespace Blick
 {
     static class Program
     {
@@ -21,8 +20,31 @@ namespace Blik
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += delegate(object s, System.Threading.ThreadExceptionEventArgs e) { Report(e.Exception); };
             AppDomain.CurrentDomain.UnhandledException += delegate(object s, UnhandledExceptionEventArgs e) { Report(e.ExceptionObject as Exception); };
+            ImportPreviousSettings();
             FontLoader.Load();
             Application.Run(new MainForm());
+        }
+
+        static void ImportPreviousSettings()
+        {
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string previous = Path.Combine(appData, "Blik");
+            string current = Path.Combine(appData, "Blick");
+            foreach (string name in new string[] { "settings.ini", "history.txt" })
+            {
+                try
+                {
+                    string source = Path.Combine(previous, name);
+                    string target = Path.Combine(current, name);
+                    if (File.Exists(source) && !File.Exists(target))
+                    {
+                        Directory.CreateDirectory(current);
+                        File.Copy(source, target, false);
+                    }
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
         }
 
         static bool reporting;
@@ -30,7 +52,7 @@ namespace Blik
         {
             if (ex == null || reporting) return;
             reporting = true;
-            string log = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Blik"), "error.log");
+            string log = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Blick"), "error.log");
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(log));
@@ -39,8 +61,8 @@ namespace Blik
             catch { }
             try
             {
-                MessageBox.Show("Что-то пошло не так, но Блик продолжает работать.\n\n" + ex.Message +
-                    "\n\nПодробности записаны в " + log + " — их можно отправить Claude.", "Блик", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Ошибка в Blick.\n\n" + ex.Message +
+                    "\n\nЖурнал ошибок: " + log, "Blick", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch { }
             reporting = false;
@@ -62,7 +84,7 @@ namespace Blik
         public struct RECT { public int Left, Top, Right, Bottom; }
     }
 
-    // ---------------------------------------------------------------- шрифты
+    // шрифты
     static class FontLoader
     {
         static readonly PrivateFontCollection pfc = new PrivateFontCollection();
@@ -141,7 +163,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- тема
+    // тема
     static class Theme
     {
         public static float Dpi = 1f, Ui = 1f;
@@ -285,7 +307,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- анимация
+    // анимация
     interface IAnimated { bool Step(); }
 
     static class Anim
@@ -324,7 +346,7 @@ namespace Blik
         }
     }
 
-    // ---------------------------------------------------------------- иконки (квадрат 24×24)
+    // иконки (квадрат 24×24)
     static class Icons
     {
         static PointF[] P(params float[] xy)
