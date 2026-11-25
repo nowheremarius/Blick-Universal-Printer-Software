@@ -135,12 +135,10 @@ namespace Blick
             float h = w * 0.42f;
             float top = cy - h / 2f - Theme.D(40);
             RectangleF body = new RectangleF(cx - w / 2f, top, w, h);
-            // лист, торчащий из-под крышки
             float pw = w * 0.5f, ph = w * 0.42f;
             RectangleF sheet = new RectangleF(cx - pw / 2f, body.Y - ph * 0.62f, pw, ph);
             Theme.FillRound(g, Theme.Paper, sheet, Theme.D(5));
 
-            // Во время скана по видимой части листа сверху вниз идёт луч и «проявляет» строки
             float bf = busyFade;
             float visBottom = body.Y;                      // ниже лист закрыт крышкой
             float beamY = visBottom, linesA = 1f, beamA = 0f;
@@ -178,13 +176,11 @@ namespace Blick
                     new RectangleF(sheet.X - Theme.D(6), beamY - Theme.D(1.5f), sheet.Width + Theme.D(12), Theme.D(3)), Theme.D(1.5f));
                 g.Restore(gsBeam);
             }
-            // корпус
             Theme.FillRound(g, Theme.Card, body, Theme.D(18));
             Theme.StrokeRound(g, Theme.CardLine, 1.5f, body, Theme.D(18));
             RectangleF lid = new RectangleF(body.X, body.Y, body.Width, h * 0.38f);
             Theme.FillRound(g, Theme.Mix(Theme.Card, Theme.HoverBg, 0.8f), lid, Theme.D(18));
             Theme.StrokeRound(g, Theme.CardLine, 1.5f, lid, Theme.D(18));
-            // световая полоса
             float gy = body.Y + h * 0.62f;
             RectangleF glow = new RectangleF(body.X + w * 0.1f, gy - Theme.D(10), w * 0.8f, Theme.D(20));
             using (LinearGradientBrush lg = new LinearGradientBrush(new RectangleF(glow.X, glow.Y - 1, glow.Width, glow.Height + 2),
@@ -208,7 +204,6 @@ namespace Blick
             {
                 float ta = (bf - 0.5f) * 2f;
                 Theme.TextC(g, "Сканирую", Theme.FontBig, new Rectangle(0, ty, Width, Theme.D(28)), Theme.Mix(Theme.Card2, Theme.Text, ta));
-                // три точки, мигающие по очереди
                 float dy = ty + Theme.D(40) + Theme.D(15), ds = Theme.D(7), dg = Theme.D(14);
                 for (int i = 0; i < 3; i++)
                 {
@@ -352,7 +347,6 @@ namespace Blick
         void DrawSuccess(Graphics g, RectangleF page)
         {
             float t = success;
-            // лист улетает в полосу страниц (вниз-влево) и уменьшается
             float a = Math.Min(1f, t / 0.55f);
             float ease = 1f - (1f - a) * (1f - a) * (1f - a);
             RectangleF from = page.IsEmpty ? new RectangleF(Width * 0.35f, Height * 0.2f, Width * 0.3f, Height * 0.6f) : page;
@@ -362,7 +356,6 @@ namespace Blick
             float fx = from.X + from.Width / 2f, fy = from.Y + from.Height / 2f;
             float x = fx + (target.X - fx) * ease - w / 2f, y = fy + (target.Y - fy) * ease - h / 2f;
             if (a < 1f) DrawFaded(g, ghost, new RectangleF(x, y, w, h), 1f - a * 0.6f);
-            // галочка
             if (t > 0.35f)
             {
                 float b = Math.Min(1f, (t - 0.35f) / 0.3f);

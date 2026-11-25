@@ -202,7 +202,7 @@ namespace Blick
             rail = new Surface(2); rail.Dock = DockStyle.Left; rail.Width = D(68);
             iZoomIn = Tool("zoomin", L.T("Увеличить (колесо мыши)", "Zoom in (mouse wheel)"));
             iZoomOut = Tool("zoomout", L.T("Уменьшить", "Zoom out"));
-            iFit = Tool("fit", L.T("Показать целиком", "Fit to view"));
+            iFit = Tool("fit", L.T("Вместить страницу в окно", "Fit page to window"));
             iRotate = Tool("rotate", L.T("Повернуть страницу на 90°", "Rotate page 90°"));
             iRepeat = Tool("repeat", L.T("Заменить последний скан (Ctrl+R)", "Replace the last scan (Ctrl+R)"));
             iHistory = Tool("history", L.T("История сканов", "Scan history"));
@@ -314,7 +314,7 @@ namespace Blick
             tips.SetToolTip(cPreview, L.T("Просмотр", "Preview"));
             tips.SetToolTip(cScan, L.T("Сканировать (Enter)", "Scan (Enter)"));
             tips.SetToolTip(bPreview, L.T("Посмотреть, как лежит лист, и выбрать область сканирования", "Preview the sheet and select the area to scan"));
-            tips.SetToolTip(card, L.T("Нажмите на строку статуса, чтобы показать файл в папке", "Click the status line to show the file in its folder"));
+            tips.SetToolTip(card, L.T("Нажмите на строку состояния, чтобы найти файл в Проводнике", "Click the status line to locate the file in File Explorer"));
 
             right.Controls.Add(tabs); right.Controls.Add(bCollapse);
             right.Controls.Add(basicPage); right.Controls.Add(extraPage);
@@ -846,7 +846,7 @@ namespace Blick
             else if (isPreview) { sp = new ScanParams(); sp.Dpi = 150; }
             else sp = BuildParams();
             if (!isPreview) lastParams = sp.Clone();
-            SetBusy(true, isPreview, isPreview ? L.T("Делаю черновой просмотр…", "Making a draft preview…") : L.T("Сканирую… не поднимайте крышку", "Scanning… keep the lid closed"));
+            SetBusy(true, isPreview, isPreview ? L.T("Готовлю предпросмотр…", "Preparing preview…") : L.T("Идёт сканирование…", "Scanning…"));
             Thread th = new Thread(delegate()
             {
                 List<Bitmap> res = null;

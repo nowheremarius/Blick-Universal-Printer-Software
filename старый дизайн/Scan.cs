@@ -114,10 +114,7 @@ namespace Blick
             return best;
         }
 
-        // постоянный поток сканера
-        // Все обращения к WIA идут через один долгоживущий STA-поток. Тогда подключение к сканеру
-        // можно держать открытым между сканами: не нужно каждый раз заново искать устройство
-        // и делать Connect — именно это и было долгим «думанием» перед сканом.
+        // Подключение WIA остаётся в одном STA-потоке между сканами.
         static readonly BlockingCollection<Action> queue = new BlockingCollection<Action>();
         static Thread worker;
         static readonly object workerLock = new object();
@@ -162,7 +159,7 @@ namespace Blick
             cInfo = null; cDev = null; cItem = null; cName = null;
         }
 
-        // Найти сканер и сразу подключиться к нему, чтобы первый скан начинался без задержки
+        // Открываем подключение при поиске устройства, до первого скана.
         static void EnsureConnected()
         {
             if (cItem != null) return;
@@ -176,12 +173,12 @@ namespace Blick
             }
             object dev = Call(cInfo, "Connect");
             object items = Get(dev, "Items");
-            if (Count(items) < 1) throw new ScanException("Сканер не отдал ни одного источника изображения.");
+            if (Count(items) < 1) throw new ScanException("Драйвер сканера не сообщил, какие источники доступны.");
             cItem = Item(items, 1);
             cDev = dev;
         }
 
-        // Поиск сканера (при запуске и по клику на строку устройства) — заодно прогревает подключение
+        // Ищем сканер при запуске и по щелчку на названии устройства.
         public static string FindName(out string diag)
         {
             string name = null, d = null;
@@ -241,9 +238,9 @@ namespace Blick
                 catch (ScanException) { throw; }
                 catch (Exception ex)
                 {
-                    // Кэшированное подключение могло «протухнуть» (сканер уснул, перезагрузился) —
-                    // переподключаемся и пробуем ещё раз. Ошибки бумаги/крышки не повторяем.
-                    if (!Retryable(ex)) throw Wrap(ex);      // бумага, крышка и т.п. — подключение в порядке
+                    // После сна сканера сохранённое подключение иногда обрывается.
+                    // Повтор возможен, пока податчик не протянул первый лист.
+                    if (!Retryable(ex)) throw Wrap(ex);
                     ResetCache();
                     if (!cached || gotPages) throw Wrap(ex);
                     try { res = ScanOnce(sp); }
@@ -359,10 +356,10 @@ namespace Blick
                 case 0x80210005: return "Сканер не в сети. Проверьте кабель и питание.";
                 case 0x80210006: return "Сканер занят. Подождите немного и попробуйте снова.";
                 case 0x80210007: return "Сканер прогревается. Попробуйте через минуту.";
-                case 0x80210008: return "Сканеру нужно внимание: проверьте его экран или индикаторы.";
+                case 0x80210008: return "Проверьте сообщение на экране сканера или его индикаторы.";
                 case 0x8021000A: return "Нет связи со сканером. Переподключите его и попробуйте снова.";
                 case 0x8021000D: return "Сканер заблокирован другой программой. Закройте её и попробуйте снова.";
-                case 0x80210015: return "Сканер не найден. Проверьте, что Pantum включён и подключён.";
+                case 0x80210015: return "Сканер не найден. Проверьте питание и подключение.";
                 case 0x80210016: return "Открыта крышка сканера.";
                 case 0x80210017: return "Лампа сканера выключена.";
                 case 0x80210064: return "Сканирование отменено.";

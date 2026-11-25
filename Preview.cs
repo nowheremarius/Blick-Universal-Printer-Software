@@ -116,7 +116,6 @@ namespace Blick
             float top = cy - h / 2f - Theme.D(40);
             RectangleF body = new RectangleF(cx - w / 2f, top, w, h);
 
-            // лист, торчащий из-под крышки
             float pw = w * 0.5f, ph = w * 0.42f;
             RectangleF sheet = new RectangleF(cx - pw / 2f, body.Y - ph * 0.62f, pw, ph);
             // лист уходит под крышку: ниже верхнего края корпуса его не видно (корпус полупрозрачный)
@@ -125,7 +124,6 @@ namespace Blick
             Theme.FillRound(g, Theme.Paper, sheet, Theme.D(5));
             g.Restore(gsSheet);
 
-            // Во время скана по видимой части листа сверху вниз идёт луч и «проявляет» строки
             float visBottom = body.Y;
             float beamY = visBottom, linesA = 1f, beamA = 0f;
             if (bf > 0f)
@@ -162,14 +160,12 @@ namespace Blick
                 g.Restore(gsBeam);
             }
 
-            // корпус сканера — тёмное стекло
             float br = Theme.D(16);
             Theme.FillRound(g, Color.FromArgb(225, 10, 15, 30), body, br);
             Theme.Edge(g, body, br, Color.FromArgb(120, 210, 222, 255), Theme.EdgeBottom);
             RectangleF lid = new RectangleF(body.X, body.Y, body.Width, h * 0.38f);
             using (Pen lp = new Pen(Theme.Stroke)) g.DrawLine(lp, lid.X + br * 0.5f, lid.Bottom, lid.Right - br * 0.5f, lid.Bottom);
 
-            // световая полоса
             float gy = body.Y + h * 0.64f;
             RectangleF glow = new RectangleF(body.X + w * 0.1f, gy - Theme.D(10), w * 0.8f, Theme.D(20));
             float pulse = 0.5f + 0.5f * (float)Math.Sin(phase * Math.PI * 4);
@@ -239,7 +235,6 @@ namespace Blick
                 g.SetClip(clip, CombineMode.Intersect);
 
                 DrawHeader(g);
-                // область содержимого — под заголовком карточки
                 float top = Theme.D(58), side = Theme.D(36), bottomPad = Theme.D(34);
                 float aw = Width - side * 2, ah = Height - top - bottomPad;
                 float cx = Width / 2f, cy = top + ah / 2f;
@@ -295,7 +290,6 @@ namespace Blick
             }
         }
 
-        // Заголовок карточки: «Предпросмотр» и сведения о странице справа
         void DrawHeader(Graphics g)
         {
             float y = Theme.D(14), h = Theme.D(30);
@@ -360,7 +354,6 @@ namespace Blick
         void DrawSuccess(Graphics g, RectangleF page)
         {
             float t = success;
-            // лист улетает в полосу страниц (вниз-влево) и уменьшается
             float a = Math.Min(1f, t / 0.55f);
             float ease = 1f - (1f - a) * (1f - a) * (1f - a);
             RectangleF from = page.IsEmpty ? new RectangleF(Width * 0.35f, Height * 0.2f, Width * 0.3f, Height * 0.6f) : page;
@@ -370,7 +363,6 @@ namespace Blick
             float fx = from.X + from.Width / 2f, fy = from.Y + from.Height / 2f;
             float x = fx + (target.X - fx) * ease - w / 2f, y = fy + (target.Y - fy) * ease - h / 2f;
             if (a < 1f) DrawFaded(g, ghost, new RectangleF(x, y, w, h), 1f - a * 0.6f);
-            // галочка
             if (t > 0.35f)
             {
                 float b = Math.Min(1f, (t - 0.35f) / 0.3f);
@@ -489,7 +481,6 @@ namespace Blick
         protected override void Render(Graphics g)
         {
             thumbs.Clear(); dels.Clear();
-            // полоса страниц — отдельная стеклянная карточка
             Theme.GlassRect(g, new RectangleF(0.5f, 0.5f, Width - 1, Height - 1), Theme.D(18), Theme.Raised, Theme.Stroke);
             int pad = Theme.D(22);
             string label = Note ?? (Pages.Count == 0 ? L.T("Страниц пока нет", "No pages yet") : L.T("Страниц в документе: ", "Pages in document: ") + Pages.Count);

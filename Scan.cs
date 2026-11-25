@@ -114,10 +114,7 @@ namespace Blick
             return best;
         }
 
-        // постоянный поток сканера
-        // Все обращения к WIA идут через один долгоживущий STA-поток. Тогда подключение к сканеру
-        // можно держать открытым между сканами: не нужно каждый раз заново искать устройство
-        // и делать Connect — именно это и было долгим «думанием» перед сканом.
+        // Подключение WIA остаётся в одном STA-потоке между сканами.
         static readonly BlockingCollection<Action> queue = new BlockingCollection<Action>();
         static Thread worker;
         static readonly object workerLock = new object();
@@ -162,7 +159,7 @@ namespace Blick
             cInfo = null; cDev = null; cItem = null; cName = null;
         }
 
-        // Найти сканер и сразу подключиться к нему, чтобы первый скан начинался без задержки
+        // Открываем подключение при поиске устройства, до первого скана.
         static void EnsureConnected()
         {
             if (cItem != null) return;
@@ -176,12 +173,12 @@ namespace Blick
             }
             object dev = Call(cInfo, "Connect");
             object items = Get(dev, "Items");
-            if (Count(items) < 1) throw new ScanException(L.T("Сканер не отдал ни одного источника изображения.", "The scanner reported no image source."));
+            if (Count(items) < 1) throw new ScanException(L.T("Драйвер сканера не сообщил, какие источники доступны.", "The scanner driver reported no image sources."));
             cItem = Item(items, 1);
             cDev = dev;
         }
 
-        // Поиск сканера (при запуске и по клику на строку устройства) — заодно прогревает подключение
+        // Ищем сканер при запуске и по щелчку на названии устройства.
         public static string FindName(out string diag)
         {
             string name = null, d = null;
@@ -241,9 +238,9 @@ namespace Blick
                 catch (ScanException) { throw; }
                 catch (Exception ex)
                 {
-                    // Кэшированное подключение могло «протухнуть» (сканер уснул, перезагрузился) —
-                    // переподключаемся и пробуем ещё раз. Ошибки бумаги/крышки не повторяем.
-                    if (!Retryable(ex)) throw Wrap(ex);      // бумага, крышка и т.п. — подключение в порядке
+                    // После сна сканера сохранённое подключение иногда обрывается.
+                    // Повтор возможен, пока податчик не протянул первый лист.
+                    if (!Retryable(ex)) throw Wrap(ex);
                     ResetCache();
                     if (!cached || gotPages) throw Wrap(ex);
                     try { res = ScanOnce(sp); }
@@ -359,10 +356,10 @@ namespace Blick
                 case 0x80210005: return L.T("Сканер не в сети. Проверьте кабель и питание.", "Scanner is offline. Check the cable and power.");
                 case 0x80210006: return L.T("Сканер занят. Подождите немного и попробуйте снова.", "Scanner is busy. Wait a moment and try again.");
                 case 0x80210007: return L.T("Сканер прогревается. Попробуйте через минуту.", "Scanner is warming up. Try again in a minute.");
-                case 0x80210008: return L.T("Сканеру нужно внимание: проверьте его экран или индикаторы.", "The scanner needs attention: check its display or lights.");
+                case 0x80210008: return L.T("Проверьте сообщение на экране сканера или его индикаторы.", "Check the scanner display or indicator lights.");
                 case 0x8021000A: return L.T("Нет связи со сканером. Переподключите его и попробуйте снова.", "Lost connection to the scanner. Reconnect it and try again.");
                 case 0x8021000D: return L.T("Сканер заблокирован другой программой. Закройте её и попробуйте снова.", "Another program is using the scanner. Close it and try again.");
-                case 0x80210015: return L.T("Сканер не найден. Проверьте, что Pantum включён и подключён.", "Scanner not found. Make sure the Pantum is on and connected.");
+                case 0x80210015: return L.T("Сканер не найден. Проверьте питание и подключение.", "Scanner not found. Check its power and connection.");
                 case 0x80210016: return L.T("Открыта крышка сканера.", "The scanner lid is open.");
                 case 0x80210017: return L.T("Лампа сканера выключена.", "The scanner lamp is off.");
                 case 0x80210064: return L.T("Сканирование отменено.", "Scan cancelled.");

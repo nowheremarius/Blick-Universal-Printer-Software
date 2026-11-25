@@ -36,7 +36,6 @@ namespace Blick
             base.Dispose(disposing);
         }
 
-        // бегущая строка для текста, который не влезает: края текста плавно растворяются
         protected float marq;
         int hoverTicks;
         bool marqNeeded;
@@ -235,7 +234,6 @@ namespace Blick
         }
     }
 
-    // Текстовая ссылка
     class GlassLink : BaseCtl
     {
         public int Align = 2;
@@ -287,7 +285,6 @@ namespace Blick
         }
     }
 
-    // Сегментированный переключатель
     class ChipGroup : BaseCtl
     {
         public string[] Items;
@@ -431,7 +428,6 @@ namespace Blick
         }
     }
 
-    // Кнопка-пилюля: главная — белая (как «New loan»), обычная — стеклянная
     class PillButton : BaseCtl
     {
         public bool Primary;
@@ -619,7 +615,6 @@ namespace Blick
         }
     }
 
-    // шапка над предпросмотром
     class HeaderCtl : BaseCtl
     {
         public string InfoA = "—", InfoB = "—";
@@ -746,7 +741,6 @@ namespace Blick
         }
     }
 
-    // всплывающие окна (тоже стекло)
     class PopupForm : GlassWindow
     {
         public bool SuppressClose;

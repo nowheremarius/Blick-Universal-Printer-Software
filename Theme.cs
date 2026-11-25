@@ -126,15 +126,14 @@ namespace Blick
     }
 
     // стекло
-    // Окно рисуется с настоящей прозрачностью: Windows 11 размывает всё, что под окном (акрил),
-    // а мы поверх кладём полупрозрачные слои. Обычная GDI-отрисовка WinForms прозрачность не умеет,
-    // поэтому каждый элемент рисует себя в собственный 32-битный буфер с альфой и копирует его в окно.
+    // WinForms теряет альфа-канал при обычной отрисовке через GDI.
+    // Поэтому каждый элемент рисуется в отдельный 32-битный буфер.
     interface ISurface { void PaintSurface(Graphics g); }
     interface ISnapshot { Bitmap Snapshot { get; } }
 
     static class Glass
     {
-        public static bool Enabled;    // включилось ли настоящее размытие
+        public static bool Enabled;    // размытие включено
         static int build = -1;
 
         public static int Build
@@ -317,8 +316,8 @@ namespace Blick
         }
     }
 
-    // Окно без рамки со стеклом. Стили обычного окна оставлены, чтобы Windows проигрывала
-    // родные анимации и давала акрил, а рамку и заголовок срезаем в WM_NCCALCSIZE.
+    // Системные стили нужны для анимаций окна и акрилового фона.
+    // Рамку и заголовок убираем в WM_NCCALCSIZE.
     class GlassWindow : Form, ISurface, ISnapshot
     {
         protected const int WS_CAPTION = 0xC00000, WS_THICKFRAME = 0x40000, WS_SYSMENU = 0x80000,
@@ -384,7 +383,7 @@ namespace Blick
         Bitmap backdrop;
         bool backdropGlass;
 
-        // Подложка окна с мягким синим свечением снизу; рисуется один раз на размер окна
+        // Фон пересчитывается при изменении размера окна.
         Bitmap Backdrop()
         {
             int w = Math.Max(1, ClientSize.Width), h = Math.Max(1, ClientSize.Height);
@@ -526,7 +525,6 @@ namespace Blick
 
         static Color N(int a, int r, int g, int b) { return Color.FromArgb(a, r, g, b); }
 
-        // Подложка окна — глубокий тёмно-синий: на стекле полупрозрачный, без стекла сплошной
         public static Color Base { get { return Glass.Enabled ? N(168, 6, 10, 22) : N(255, 9, 13, 26); } }
 
         public static readonly Color Raised = N(58, 26, 36, 62);       // стеклянные карточки
@@ -581,7 +579,6 @@ namespace Blick
                 (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
         }
 
-        // Тот же цвет с умноженной прозрачностью
         public static Color Fade(Color c, float k)
         {
             k = Math.Max(0f, Math.Min(1f, k));
@@ -623,7 +620,6 @@ namespace Blick
             using (Pen pen = new Pen(c, width)) g.DrawPath(pen, p);
         }
 
-        // Верхняя кромка рамки светлее нижней
         public static void Edge(Graphics g, RectangleF r, float rad, Color top, Color bottom)
         {
             if (r.Width < 2 || r.Height < 2) return;
@@ -633,7 +629,6 @@ namespace Blick
                 g.DrawPath(pen, p);
         }
 
-        // Выбранный элемент: светлая синеватая плашка с тонкой рамкой (как подсвеченный пункт меню)
         public static void SelGlass(Graphics g, RectangleF r, float rad, float k)
         {
             if (k <= 0.01f || r.Width < 2 || r.Height < 2) return;
@@ -641,7 +636,6 @@ namespace Blick
             Edge(g, r, rad, N((int)(96 * k), 200, 216, 255), N((int)(26 * k), 200, 216, 255));
         }
 
-        // Стеклянная карточка: еле заметная заливка + рамка, светлая сверху
         public static void GlassRect(Graphics g, RectangleF r, float rad, Color fill, Color stroke)
         {
             FillRound(g, fill, r, rad);
@@ -762,7 +756,6 @@ namespace Blick
             return r;
         }
 
-        // Знак Блика — четырёхлучевая искра (блик на стекле) и маленькая искра рядом
         public static GraphicsPath Spark(float cx, float cy, float r)
         {
             GraphicsPath p = new GraphicsPath();

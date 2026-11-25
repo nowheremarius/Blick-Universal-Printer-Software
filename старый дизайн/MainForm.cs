@@ -240,7 +240,7 @@ namespace Blick
             };
             iZoomIn = Tool("zoomin", "Увеличить (колесо мыши)");
             iZoomOut = Tool("zoomout", "Уменьшить");
-            iFit = Tool("fit", "Показать целиком");
+            iFit = Tool("fit", "Вместить страницу в окно");
             iRotate = Tool("rotate", "Повернуть страницу на 90°");
             iRepeat = Tool("repeat", "Заменить последний скан (Ctrl+R)");
             iHistory = Tool("history", "История сканов");
@@ -355,7 +355,7 @@ namespace Blick
             tips.SetToolTip(cPreview, "Просмотр");
             tips.SetToolTip(cScan, "Сканировать (Enter)");
             tips.SetToolTip(bPreview, "Посмотреть, как лежит лист, и выбрать область сканирования");
-            tips.SetToolTip(card, "Нажмите на строку статуса, чтобы показать файл в папке");
+            tips.SetToolTip(card, "Нажмите на строку состояния, чтобы найти файл в Проводнике");
 
             right.Controls.Add(tabs); right.Controls.Add(bCollapse);
             right.Controls.Add(basicPage); right.Controls.Add(extraPage);
@@ -870,7 +870,7 @@ namespace Blick
             else if (isPreview) { sp = new ScanParams(); sp.Dpi = 150; }
             else sp = BuildParams();
             if (!isPreview) lastParams = sp.Clone();
-            SetBusy(true, isPreview, isPreview ? "Делаю черновой просмотр…" : "Сканирую… не поднимайте крышку");
+            SetBusy(true, isPreview, isPreview ? "Готовлю предпросмотр…" : "Идёт сканирование…");
             Thread th = new Thread(delegate()
             {
                 List<Bitmap> res = null;

@@ -21,7 +21,6 @@ namespace Blick
         protected Color ParentBg { get { return Parent != null ? Parent.BackColor : Theme.Bg; } }
         protected void Kick() { Anim.Kick(this); }
 
-        // бегущая строка для текста, который не влезает
         protected float marq;
         int hoverTicks;
         bool marqNeeded;
@@ -52,10 +51,9 @@ namespace Blick
                     g.DrawString(text, f, br, r.X - off, y, sf);
                     if (off > 0f) g.DrawString(text, f, br, r.X - off + period, y, sf);
                 }
-                // виньетка по краям вместо многоточия
                 float fw = Math.Min(Theme.D(30), r.Width / 3f);
                 Fade(g, new RectangleF(r.Right - fw, r.Y, fw, r.Height), bg, 1f, false);
-                // левая виньетка проявляется плавно один раз и дальше не исчезает — без вспышек при новом круге
+                // При повторе прокрутки левый край уже затемнён.
                 float lstr = animate ? Math.Min(1f, marq / fw) : 0f;
                 if (lstr > 0f) Fade(g, new RectangleF(r.X, r.Y, fw, r.Height), bg, lstr, true);
             }
@@ -454,7 +452,6 @@ namespace Blick
         }
     }
 
-    // шапка над предпросмотром
     class HeaderCtl : BaseCtl
     {
         public string InfoA = "—", InfoB = "—";
