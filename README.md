@@ -4,6 +4,8 @@
 
 Blick is a Windows desktop app for scanning documents, receipts and photos. It can save one file per page or collect a stack into a searchable PDF. It talks to scanners through Windows Image Acquisition (WIA), including the scanner in a multifunction printer.
 
+[Download Blick.exe for Windows](https://github.com/nowheremarius/Blick-Universal-Printer-Software/releases/latest/download/Blick.exe)
+
 ### Build and run
 
 Download or clone the repository. On Windows, open the project folder and run `build.bat`. The script looks for the .NET Framework 4.x C# compiler in the 64-bit and 32-bit Framework folders and builds `Blick.exe` alongside the source files. Run that executable to use the version you just built.
@@ -79,6 +81,8 @@ Blick keeps its settings in `%APPDATA%\Blick\settings.ini`. The clock button ope
 ## Blick - Universal Printer Software
 
 Blick сканирует документы, чеки и фотографии в Windows. Страницы можно сохранить по отдельности или собрать в PDF с поиском по тексту. Для связи с устройством программа использует WIA (Windows Image Acquisition). Подойдёт и сканер в составе МФУ, если для него установлен драйвер WIA.
+
+[Скачать Blick.exe для Windows](https://github.com/nowheremarius/Blick-Universal-Printer-Software/releases/latest/download/Blick.exe)
 
 ### Сборка и запуск
 
