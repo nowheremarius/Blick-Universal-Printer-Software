@@ -56,17 +56,29 @@ namespace Blick
             }
             return sheet;
         }
+        // Render client surfaces only. WM_PRINT includes the native non-client frame
+        // on some Windows runners and clips windows larger than the virtual desktop.
+        static void PaintClient(Control control, Graphics g)
+        {
+            using (PaintEventArgs e = new PaintEventArgs(g, control.ClientRectangle))
+                typeof(Control).GetMethod("OnPaint", Private).Invoke(control, new object[] { e });
+            for (int i = control.Controls.Count - 1; i >= 0; i--)
+            {
+                Control child = control.Controls[i];
+                if (!child.Visible || child.Width < 1 || child.Height < 1) continue;
+                System.Drawing.Drawing2D.GraphicsState state = g.Save();
+                g.TranslateTransform(child.Left, child.Top);
+                g.SetClip(child.ClientRectangle, System.Drawing.Drawing2D.CombineMode.Intersect);
+                PaintClient(child, g);
+                g.Restore(state);
+            }
+        }
         static void Capture(Form form, string path)
         {
-            form.Refresh();
             Application.DoEvents();
             using (Bitmap b = new Bitmap(form.ClientSize.Width, form.ClientSize.Height))
             {
-                if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-                    form.DrawToBitmap(b, new Rectangle(Point.Empty, b.Size));
-                else
-                    using (Graphics g = Graphics.FromImage(b))
-                        g.CopyFromScreen(form.PointToScreen(Point.Empty), Point.Empty, b.Size);
+                using (Graphics g = Graphics.FromImage(b)) PaintClient(form, g);
                 b.Save(path, ImageFormat.Png);
             }
         }
@@ -80,11 +92,13 @@ namespace Blick
             Directory.CreateDirectory(folder);
             using (MainForm form = new MainForm())
             {
+                form.MaximumSize = new Size(2400, 1800);
                 form.Show();
                 form.ClientSize = new Size(1400, 880);
                 Stopwatch wait = Stopwatch.StartNew();
                 while (Field<bool>(form, "detecting") && wait.ElapsedMilliseconds < 6000)
                 { Application.DoEvents(); System.Threading.Thread.Sleep(16); }
+                Call(form, "SetCollapsed", false, false);
                 Settings settings = Field<Settings>(form, "st");
                 settings.Tab = 0;
                 settings.Lang = "ru"; L.En = false;
