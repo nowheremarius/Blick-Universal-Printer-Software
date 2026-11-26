@@ -62,8 +62,11 @@ namespace Blick
             Application.DoEvents();
             using (Bitmap b = new Bitmap(form.ClientSize.Width, form.ClientSize.Height))
             {
-                using (Graphics g = Graphics.FromImage(b))
-                    g.CopyFromScreen(form.PointToScreen(Point.Empty), Point.Empty, b.Size);
+                if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                    form.DrawToBitmap(b, new Rectangle(Point.Empty, b.Size));
+                else
+                    using (Graphics g = Graphics.FromImage(b))
+                        g.CopyFromScreen(form.PointToScreen(Point.Empty), Point.Empty, b.Size);
                 b.Save(path, ImageFormat.Png);
             }
         }

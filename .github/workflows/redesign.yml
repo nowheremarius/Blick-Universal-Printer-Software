@@ -23,6 +23,14 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           .\ReleaseChecks.exe
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Check workspace, scale, languages and dialogs
+        shell: pwsh
+        run: |
+          $compiler = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          & $compiler /nologo /codepage:65001 /target:exe /out:WorkspaceChecks.exe /main:Blick.WorkspaceChecks /resource:assets\brand\mark-dark.png,BlickMark /resource:assets\lucide\atlas.png,Lucide /resource:assets\fonts\Inter-Regular.ttf,Inter-Regular /resource:assets\fonts\Inter-Bold.ttf,Inter-Bold /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:Microsoft.VisualBasic.dll Theme.cs Controls.cs Preview.cs Imaging.cs Scan.cs MainForm.cs tests\WorkspaceChecks.cs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          .\WorkspaceChecks.exe windows-screenshots
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build installer
         shell: pwsh
         run: |
@@ -30,12 +38,22 @@ jobs:
           if (!(Test-Path $nsis)) { choco install nsis -y --no-progress }
           & $nsis installer\Blick.nsi
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Install and uninstall in the runner profile
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\Blick Preview'
+          $install = Start-Process .\Blick-Setup.exe -ArgumentList '/S' -Wait -PassThru
+          if ($install.ExitCode -or !(Test-Path "$dir\Blick.exe")) { throw 'Install failed' }
+          if ((Get-FileHash "$dir\Blick.exe").Hash -ne (Get-FileHash .\Blick.exe).Hash) { throw 'Installed executable differs' }
+          $remove = Start-Process "$dir\Uninstall.exe" -ArgumentList '/S' -Wait -PassThru
+          if ($remove.ExitCode -or (Test-Path "$dir\Blick.exe")) { throw 'Uninstall failed' }
       - uses: actions/upload-artifact@v4
         with:
           name: Blick-redesign-Windows
           path: |
             Blick.exe
             Blick-Setup.exe
+            windows-screenshots/*.png
             assets/fonts/LICENSE.txt
             assets/lucide/LICENSE
           if-no-files-found: error
