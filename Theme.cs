@@ -84,97 +84,23 @@ namespace Blick
     static class NativeMethods
     {
         [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+        [DllImport("gdi32.dll")] public static extern IntPtr AddFontMemResourceEx(IntPtr data, uint size, IntPtr reserved, ref uint count);
         [DllImport("user32.dll")] public static extern bool ReleaseCapture();
         [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
         [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
-        [DllImport("dwmapi.dll")] public static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref MARGINS margins);
-        [DllImport("gdi32.dll")] public static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, ref uint pcFonts);
         [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr hWnd, int index);
         [DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr hWnd, int index, int value);
         [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
-        [DllImport("ntdll.dll")] public static extern int RtlGetVersion(ref OSVERSIONINFO info);
 
-        [DllImport("gdi32.dll")] public static extern IntPtr CreateDIBSection(IntPtr hdc, ref BITMAPINFOHEADER bmi, uint usage, out IntPtr bits, IntPtr section, uint offset);
-        [DllImport("gdi32.dll")] public static extern IntPtr CreateCompatibleDC(IntPtr hdc);
-        [DllImport("gdi32.dll")] public static extern IntPtr SelectObject(IntPtr hdc, IntPtr obj);
-        [DllImport("gdi32.dll")] public static extern bool DeleteObject(IntPtr obj);
-        [DllImport("gdi32.dll")] public static extern bool DeleteDC(IntPtr hdc);
-        [DllImport("gdi32.dll")] public static extern bool BitBlt(IntPtr dst, int x, int y, int w, int h, IntPtr src, int sx, int sy, uint rop);
-        [DllImport("gdi32.dll")] public static extern bool GdiFlush();
-        [DllImport("user32.dll")] public static extern bool RedrawWindow(IntPtr hWnd, IntPtr rect, IntPtr rgn, uint flags);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT { public int Left, Top, Right, Bottom; }
 
-        [StructLayout(LayoutKind.Sequential)]
-        public struct MARGINS { public int Left, Right, Top, Bottom; }
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        public struct OSVERSIONINFO
-        {
-            public int Size, Major, Minor, Build, Platform;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string Csd;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct BITMAPINFOHEADER
-        {
-            public int biSize, biWidth, biHeight;
-            public short biPlanes, biBitCount;
-            public int biCompression, biSizeImage, biXPelsPerMeter, biYPelsPerMeter, biClrUsed, biClrImportant;
-        }
     }
 
-    // стекло
-    // WinForms теряет альфа-канал при обычной отрисовке через GDI.
-    // Поэтому каждый элемент рисуется в отдельный 32-битный буфер.
     interface ISurface { void PaintSurface(Graphics g); }
-    interface ISnapshot { Bitmap Snapshot { get; } }
-
     static class Glass
     {
-        public static bool Enabled;    // размытие включено
-        static int build = -1;
-
-        public static int Build
-        {
-            get
-            {
-                if (build < 0)
-                {
-                    build = 0;
-                    try
-                    {
-                        NativeMethods.OSVERSIONINFO v = new NativeMethods.OSVERSIONINFO();
-                        v.Size = Marshal.SizeOf(typeof(NativeMethods.OSVERSIONINFO));
-                        if (NativeMethods.RtlGetVersion(ref v) == 0 && v.Major >= 10) build = v.Build;
-                    }
-                    catch { }
-                }
-                return build;
-            }
-        }
-
-        // Настроить окно: тёмный режим, скруглённые углы и (на Windows 11 22H2+) акриловое размытие
-        public static bool Setup(IntPtr h)
-        {
-            try { int dark = 1; NativeMethods.DwmSetWindowAttribute(h, 20, ref dark, 4); } catch { }
-            try { int round = 2; NativeMethods.DwmSetWindowAttribute(h, 33, ref round, 4); } catch { }
-            if (Build < 22621) return false;
-            try
-            {
-                NativeMethods.MARGINS m = new NativeMethods.MARGINS();
-                m.Left = m.Right = m.Top = m.Bottom = -1;
-                if (NativeMethods.DwmExtendFrameIntoClientArea(h, ref m) != 0) return false;
-                int acrylic = 3; // DWMSBT_TRANSIENTWINDOW
-                if (NativeMethods.DwmSetWindowAttribute(h, 38, ref acrylic, 4) == 0) return true;
-                m.Left = m.Right = m.Top = m.Bottom = 0;
-                NativeMethods.DwmExtendFrameIntoClientArea(h, ref m);
-            }
-            catch { }
-            return false;
-        }
-
         // Нарисовать под элементом всё, что нарисовали бы его родители (стекло окна, карточки панелей)
         public static void PaintBehind(Graphics g, Control c)
         {
@@ -194,145 +120,21 @@ namespace Blick
             }
         }
 
-        // Общая отрисовка через буфер с альфой
-        public static void Paint(Control c, PaintEventArgs e, GlassBuffer buf, Action<Graphics> render)
-        {
-            int w = c.ClientSize.Width, h = c.ClientSize.Height;
-            if (w <= 0 || h <= 0) return;
-            Rectangle clip = Rectangle.Intersect(e.ClipRectangle, new Rectangle(0, 0, w, h));
-            if (clip.Width <= 0 || clip.Height <= 0) return;
-            if (!buf.Ensure(w, h)) return;
-            using (Graphics g = Graphics.FromImage(buf.Bmp))
-            {
-                g.SetClip(clip);
-                g.Clear(Color.Transparent);
-                Theme.Hq(g);
-                PaintBehind(g, c);
-                ISurface self = c as ISurface;
-                if (self != null) self.PaintSurface(g);
-                if (render != null) render(g);
-            }
-            IntPtr dst = e.Graphics.GetHdc();
-            try
-            {
-                NativeMethods.GdiFlush();
-                NativeMethods.BitBlt(dst, clip.X, clip.Y, clip.Width, clip.Height, buf.Hdc, clip.X, clip.Y, 0x00CC0020);
-            }
-            finally { e.Graphics.ReleaseHdc(dst); }
-        }
     }
 
-    // Снимок окна из буферов всех элементов (с альфой — стекло под ним продолжает просвечивать)
-    static class WindowShot
-    {
-        public static Bitmap Capture(Control root)
-        {
-            int w = root.ClientSize.Width, h = root.ClientSize.Height;
-            if (w <= 0 || h <= 0) return null;
-            try { NativeMethods.RedrawWindow(root.Handle, IntPtr.Zero, IntPtr.Zero, 0x0100 | 0x0080); } catch { } // дорисовать всё, что ждёт отрисовки
-            Bitmap bmp = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
-            using (Graphics g = Graphics.FromImage(bmp))
-            {
-                g.Clear(Color.Transparent);
-                g.CompositingMode = CompositingMode.SourceCopy;
-                g.InterpolationMode = InterpolationMode.NearestNeighbor;
-                Compose(g, root, Point.Empty);
-            }
-            return bmp;
-        }
-
-        static void Compose(Graphics g, Control c, Point at)
-        {
-            ISnapshot s = c as ISnapshot;
-            Bitmap b = s != null ? s.Snapshot : null;
-            if (b != null) g.DrawImage(b, new Rectangle(at.X, at.Y, b.Width, b.Height), 0, 0, b.Width, b.Height, GraphicsUnit.Pixel);
-            for (int i = c.Controls.Count - 1; i >= 0; i--)
-            {
-                Control ch = c.Controls[i];
-                if (!ch.Visible) continue;
-                Compose(g, ch, new Point(at.X + ch.Left, at.Y + ch.Top));
-            }
-        }
-
-        // Мягкое размытие: уменьшить в factor раз и растянуть обратно
-        public static Bitmap Blur(Bitmap src, int factor)
-        {
-            int w = Math.Max(1, src.Width / factor), h = Math.Max(1, src.Height / factor);
-            using (Bitmap small = new Bitmap(w, h, PixelFormat.Format32bppPArgb))
-            {
-                using (Graphics g = Graphics.FromImage(small))
-                {
-                    g.CompositingMode = CompositingMode.SourceCopy;
-                    g.InterpolationMode = InterpolationMode.HighQualityBilinear;
-                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                    g.DrawImage(src, new Rectangle(0, 0, w, h));
-                }
-                Bitmap big = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppPArgb);
-                using (Graphics g = Graphics.FromImage(big))
-                using (ImageAttributes ia = new ImageAttributes())
-                {
-                    ia.SetWrapMode(WrapMode.TileFlipXY);
-                    g.CompositingMode = CompositingMode.SourceCopy;
-                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                    g.DrawImage(small, new Rectangle(0, 0, big.Width, big.Height), 0, 0, w, h, GraphicsUnit.Pixel, ia);
-                }
-                return big;
-            }
-        }
-    }
-
-    // 32-битный буфер с альфой (DIB-секция, на которой рисует GDI+)
-    sealed class GlassBuffer : IDisposable
-    {
-        public Bitmap Bmp;
-        public IntPtr Hdc;
-        IntPtr hbmp, oldObj;
-        int w, h;
-
-        public bool Ensure(int width, int height)
-        {
-            if (Bmp != null && width == w && height == h) return true;
-            Dispose();
-            NativeMethods.BITMAPINFOHEADER bi = new NativeMethods.BITMAPINFOHEADER();
-            bi.biSize = Marshal.SizeOf(typeof(NativeMethods.BITMAPINFOHEADER));
-            bi.biWidth = width; bi.biHeight = -height; bi.biPlanes = 1; bi.biBitCount = 32; bi.biCompression = 0;
-            IntPtr bits;
-            hbmp = NativeMethods.CreateDIBSection(IntPtr.Zero, ref bi, 0, out bits, IntPtr.Zero, 0);
-            if (hbmp == IntPtr.Zero || bits == IntPtr.Zero) { hbmp = IntPtr.Zero; return false; }
-            Hdc = NativeMethods.CreateCompatibleDC(IntPtr.Zero);
-            oldObj = NativeMethods.SelectObject(Hdc, hbmp);
-            Bmp = new Bitmap(width, height, width * 4, PixelFormat.Format32bppPArgb, bits);
-            w = width; h = height;
-            return true;
-        }
-
-        public void Dispose()
-        {
-            if (Bmp != null) { Bmp.Dispose(); Bmp = null; }
-            if (Hdc != IntPtr.Zero) { NativeMethods.SelectObject(Hdc, oldObj); NativeMethods.DeleteDC(Hdc); Hdc = IntPtr.Zero; }
-            if (hbmp != IntPtr.Zero) { NativeMethods.DeleteObject(hbmp); hbmp = IntPtr.Zero; }
-            w = h = 0;
-        }
-    }
-
-    // Системные стили нужны для анимаций окна и акрилового фона.
-    // Рамку и заголовок убираем в WM_NCCALCSIZE.
-    class GlassWindow : Form, ISurface, ISnapshot
+    class GlassWindow : Form, ISurface
     {
         protected const int WS_CAPTION = 0xC00000, WS_THICKFRAME = 0x40000, WS_SYSMENU = 0x80000,
                             WS_MINIMIZEBOX = 0x20000, WS_MAXIMIZEBOX = 0x10000, WS_EX_COMPOSITED = 0x02000000;
-        readonly GlassBuffer buf = new GlassBuffer();
         protected bool FullFrame = true; // для главного окна — свернуть/развернуть
-        public Bitmap Snapshot { get { return buf.Bmp; } }
 
         public GlassWindow()
         {
             FormBorderStyle = FormBorderStyle.None;
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.Opaque | ControlStyles.ResizeRedraw, true);
             SetStyle(ControlStyles.OptimizedDoubleBuffer, false);
-            DoubleBuffered = false;
-            BackColor = Color.Black;
+            DoubleBuffered = true;
+            BackColor = Theme.Base;
         }
 
         protected override CreateParams CreateParams
@@ -350,19 +152,18 @@ namespace Blick
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
-            bool ok = Glass.Setup(Handle);
-            if (this is MainForm) Glass.Enabled = ok;
+            try
+            {
+                int dark = 1, round = 2;
+                NativeMethods.DwmSetWindowAttribute(Handle, 20, ref dark, 4);
+                NativeMethods.DwmSetWindowAttribute(Handle, 33, ref round, 4);
+            }
+            catch (DllNotFoundException) { }
+            catch (EntryPointNotFoundException) { }
         }
 
         protected override void WndProc(ref Message m)
         {
-            if (m.Msg == 0x86 && Glass.Enabled) // WM_NCACTIVATE: держим окно «активным» для Windows — иначе стекло гаснет в серый
-            {
-                m.WParam = (IntPtr)1;
-                base.WndProc(ref m);
-                m.Result = (IntPtr)1;
-                return;
-            }
             if (m.Msg == 0x83) // WM_NCCALCSIZE — всё окно клиентское
             {
                 if (m.WParam != IntPtr.Zero && WindowState == FormWindowState.Maximized)
@@ -380,58 +181,14 @@ namespace Blick
             base.WndProc(ref m);
         }
 
-        Bitmap backdrop;
-        bool backdropGlass;
-
-        // Фон пересчитывается при изменении размера окна.
-        Bitmap Backdrop()
-        {
-            int w = Math.Max(1, ClientSize.Width), h = Math.Max(1, ClientSize.Height);
-            if (backdrop != null && backdrop.Width == w && backdrop.Height == h && backdropGlass == Glass.Enabled) return backdrop;
-            if (backdrop != null) backdrop.Dispose();
-            backdropGlass = Glass.Enabled;
-            backdrop = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
-            using (Graphics g = Graphics.FromImage(backdrop))
-            {
-                g.Clear(Theme.Base);
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                Glow(g, new RectangleF(w * 0.05f, h * 0.62f, w * 0.9f, h * 0.9f), Color.FromArgb(70, 70, 116, 255));
-                Glow(g, new RectangleF(-w * 0.25f, -h * 0.35f, w * 0.7f, h * 0.8f), Color.FromArgb(26, 120, 100, 255));
-            }
-            return backdrop;
-        }
-
-        static void Glow(Graphics g, RectangleF r, Color c)
-        {
-            using (GraphicsPath p = new GraphicsPath())
-            {
-                p.AddEllipse(r);
-                using (PathGradientBrush pb = new PathGradientBrush(p))
-                {
-                    pb.CenterColor = c;
-                    pb.SurroundColors = new Color[] { Color.FromArgb(0, c) };
-                    g.FillPath(pb, p);
-                }
-            }
-        }
-
         public virtual void PaintSurface(Graphics g)
         {
-            Bitmap bd = Backdrop();
-            g.DrawImage(bd, new Rectangle(0, 0, bd.Width, bd.Height), 0, 0, bd.Width, bd.Height, GraphicsUnit.Pixel);
-            if (!Glass.Enabled && Glass.Build < 22000)
-                using (Pen p = new Pen(Theme.Stroke)) g.DrawRectangle(p, 0, 0, ClientSize.Width - 1, ClientSize.Height - 1);
+            using (SolidBrush brush = new SolidBrush(this is MainForm ? Theme.Base : Theme.Panel))
+                g.FillRectangle(brush, ClientRectangle);
         }
 
         protected override void OnPaintBackground(PaintEventArgs e) { }
-        protected override void OnPaint(PaintEventArgs e) { Glass.Paint(this, e, buf, null); }
-        protected override void OnResize(EventArgs e) { base.OnResize(e); Invalidate(); }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing) { buf.Dispose(); if (backdrop != null) { backdrop.Dispose(); backdrop = null; } }
-            base.Dispose(disposing);
-        }
+        protected override void OnPaint(PaintEventArgs e) { PaintSurface(e.Graphics); }
     }
 
     // шрифты
@@ -446,31 +203,27 @@ namespace Blick
         {
             try
             {
-                string dir = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "fonts");
-                if (Directory.Exists(dir))
+                foreach (string weight in new string[] { "Regular", "Bold" })
                 {
-                    List<string> files = new List<string>();
-                    files.AddRange(Directory.GetFiles(dir, "*.ttf", SearchOption.AllDirectories));
-                    files.AddRange(Directory.GetFiles(dir, "*.otf", SearchOption.AllDirectories));
-                    bool hasStatic = false;
-                    foreach (string f in files) if (f.IndexOf("Variable", StringComparison.OrdinalIgnoreCase) < 0) hasStatic = true;
-                    foreach (string f in files)
+                    using (Stream stream = typeof(FontLoader).Assembly.GetManifestResourceStream("Inter-" + weight))
                     {
-                        if (hasStatic && f.IndexOf("Variable", StringComparison.OrdinalIgnoreCase) >= 0) continue;
-                        if (f.IndexOf("Italic", StringComparison.OrdinalIgnoreCase) >= 0) continue;
-                        try
+                        if (stream == null) continue;
+                        using (BinaryReader reader = new BinaryReader(stream))
                         {
-                            byte[] data = File.ReadAllBytes(f);
+                            byte[] data = reader.ReadBytes((int)stream.Length);
+                            // GDI+ requires the font buffer for the lifetime of the private collection.
                             IntPtr mem = Marshal.AllocCoTaskMem(data.Length);
                             Marshal.Copy(data, 0, mem, data.Length);
-                            uint n = 0;
-                            NativeMethods.AddFontMemResourceEx(mem, (uint)data.Length, IntPtr.Zero, ref n);
-                            pfc.AddMemoryFont(mem, data.Length); // память не освобождаем — шрифт живёт до выхода
+                            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                            {
+                                uint count = 0;
+                                NativeMethods.AddFontMemResourceEx(mem, (uint)data.Length, IntPtr.Zero, ref count);
+                            }
+                            pfc.AddMemoryFont(mem, data.Length);
                         }
-                        catch { }
                     }
-                    foreach (FontFamily ff in pfc.Families) families[ff.Name] = ff;
                 }
+                foreach (FontFamily ff in pfc.Families) families[ff.Name] = ff;
             }
             catch { }
 
@@ -478,11 +231,12 @@ namespace Blick
             try { using (InstalledFontCollection ic = new InstalledFontCollection()) foreach (FontFamily ff in ic.Families) installed.Add(ff.Name); }
             catch { }
 
-            string[] prefs = new string[] { "Inter", "Montserrat", "Segoe UI" };
+            string[] prefs = new string[] { "Inter Variable Text", "Inter Variable", "Inter", "Segoe UI" };
             foreach (string name in prefs)
             {
                 bool priv = families.ContainsKey(name);
                 if (!priv && !installed.Contains(name)) continue;
+                if (installed.Contains(name)) families.Remove(name);
                 Regular = name;
                 if (name == "Segoe UI") { Semi = "Segoe UI Semibold"; SemiNeedsBold = !installed.Contains("Segoe UI Semibold"); if (SemiNeedsBold) Semi = name; Heavy = name; HeavyNeedsBold = true; return; }
                 if (Has(name + " SemiBold", installed)) { Semi = name + " SemiBold"; SemiNeedsBold = false; }
@@ -513,41 +267,23 @@ namespace Blick
         }
     }
 
-    // тема (тёмное стекло, монохром)
+    // Цвета и размеры рабочего пространства.
     static class Theme
     {
         public static float Dpi = 1f, Ui = 1f;
         public static float Scale { get { return Dpi * Ui; } }
         public static int D(float v) { return (int)Math.Round(v * Scale); }
 
-        static Color W(int a) { return Color.FromArgb(a, 255, 255, 255); }
-        static Color B(int a) { return Color.FromArgb(a, 0, 0, 0); }
+        static Color Gray(int value) { return Color.FromArgb(value, value, value); }
 
-        static Color N(int a, int r, int g, int b) { return Color.FromArgb(a, r, g, b); }
-
-        public static Color Base { get { return Glass.Enabled ? N(168, 6, 10, 22) : N(255, 9, 13, 26); } }
-
-        public static readonly Color Raised = N(58, 26, 36, 62);       // стеклянные карточки
-        public static readonly Color Inset = N(110, 3, 6, 16);         // поля внутри карточек
-        public static readonly Color Track = N(60, 3, 6, 16);          // дорожка переключателей
-        public static readonly Color Hover = N(34, 150, 176, 255);     // наведение — светлее, с синевой
-        public static readonly Color Press = N(52, 150, 176, 255);
-        public static readonly Color Stroke = N(30, 190, 205, 255);    // тонкие рамки
-        public static readonly Color StrokeStrong = N(60, 200, 214, 255);
-        public static readonly Color EdgeTop = N(64, 210, 222, 255);   // рамка карточки сверху (свет)
-        public static readonly Color EdgeBottom = N(14, 210, 222, 255);// ...и снизу (почти нет)
-
-        public static readonly Color Text = N(255, 238, 241, 248);
-        public static readonly Color Text2 = N(255, 192, 199, 216);
-        public static readonly Color Muted = N(255, 128, 138, 162);
-        public static readonly Color Dim = N(255, 78, 86, 108);
-        public static readonly Color Error = N(255, 255, 132, 132);
-        public static readonly Color Paper = N(255, 246, 247, 250);
-        public static readonly Color Accent = Color.White;                    // сплошные элементы (главная кнопка)
-        public static readonly Color AccentHover = N(255, 222, 228, 242);
-        public static readonly Color AccentInk = N(255, 8, 12, 24);
-        public static readonly Color Blue = N(255, 120, 160, 255);            // мягкий синий акцент
-        public static readonly Color Overlay = N(160, 2, 5, 14);
+        public static readonly Color Base = Gray(17), Panel = Gray(25), Raised = Gray(34);
+        public static readonly Color Inset = Gray(34), Track = Gray(25), Hover = Gray(44), Press = Gray(60);
+        public static readonly Color Stroke = Gray(41), StrokeStrong = Gray(76);
+        public static readonly Color EdgeTop = StrokeStrong, EdgeBottom = Stroke;
+        public static readonly Color Text = Gray(242), Text2 = Gray(208), Muted = Gray(160), Dim = Gray(112);
+        public static readonly Color Error = Text, Paper = Color.White, Accent = Text;
+        public static readonly Color AccentHover = Gray(219), AccentInk = Base, Selection = Text;
+        public static readonly Color Overlay = Color.FromArgb(150, 0, 0, 0);
 
         public static Font FontLabel, FontChip, FontBody, FontSmall, FontTitle, FontLogo, FontBtn, FontBig, FontHuge;
 
@@ -623,23 +359,19 @@ namespace Blick
         public static void Edge(Graphics g, RectangleF r, float rad, Color top, Color bottom)
         {
             if (r.Width < 2 || r.Height < 2) return;
-            using (GraphicsPath p = Round(r, rad))
-            using (LinearGradientBrush lg = new LinearGradientBrush(new RectangleF(r.X, r.Y - 1, r.Width, r.Height + 2), top, bottom, LinearGradientMode.Vertical))
-            using (Pen pen = new Pen(lg, 1f))
-                g.DrawPath(pen, p);
+            StrokeRound(g, top, 1f, r, Math.Min(rad, D(12)));
         }
 
         public static void SelGlass(Graphics g, RectangleF r, float rad, float k)
         {
-            if (k <= 0.01f || r.Width < 2 || r.Height < 2) return;
-            FillRound(g, N((int)(44 * k), 150, 178, 255), r, rad);
-            Edge(g, r, rad, N((int)(96 * k), 200, 216, 255), N((int)(26 * k), 200, 216, 255));
+            FillRound(g, Fade(Hover, k), r, Math.Min(rad, D(10)));
+            StrokeRound(g, Fade(StrokeStrong, k), 1f, r, Math.Min(rad, D(10)));
         }
 
         public static void GlassRect(Graphics g, RectangleF r, float rad, Color fill, Color stroke)
         {
             FillRound(g, fill, r, rad);
-            Edge(g, r, rad, EdgeTop, EdgeBottom);
+            StrokeRound(g, stroke, 1f, r, rad);
         }
 
         public static void Ring(Graphics g, Color c, float width, float cx, float cy, float dia)
@@ -749,114 +481,56 @@ namespace Blick
     // иконки (квадрат 24×24)
     static class Icons
     {
-        static PointF[] P(params float[] xy)
-        {
-            PointF[] r = new PointF[xy.Length / 2];
-            for (int i = 0; i < r.Length; i++) r[i] = new PointF(xy[i * 2], xy[i * 2 + 1]);
-            return r;
-        }
+        static readonly string[] Names = "house scan-line printer history printer-check settings circle-help file file-plus folder-open save file-output files trash-2 rotate-ccw rotate-cw crop arrow-up arrow-down layout-grid list file-text mouse-pointer-2 hand zoom-in zoom-out maximize scan chevron-left chevron-right refresh-cw layers image grip file-type scan-text copy sliders-horizontal sun contrast palette plus minus x check chevron-down ellipsis search info triangle-alert circle-x circle-check loader-circle moon monitor download wifi usb eye timer square".Split(' ');
+        static readonly Bitmap Atlas = Load("Lucide");
+        static readonly Bitmap Mark = Load("BlickMark");
 
-        public static GraphicsPath Spark(float cx, float cy, float r)
+        static Bitmap Load(string name)
         {
-            GraphicsPath p = new GraphicsPath();
-            float k = r * 0.11f, q = r * 0.3f;
-            p.AddBezier(cx, cy - r, cx + k, cy - q, cx + q, cy - k, cx + r, cy);
-            p.AddBezier(cx + r, cy, cx + q, cy + k, cx + k, cy + q, cx, cy + r);
-            p.AddBezier(cx, cy + r, cx - k, cy + q, cx - q, cy + k, cx - r, cy);
-            p.AddBezier(cx - r, cy, cx - q, cy - k, cx - k, cy - q, cx, cy - r);
-            p.CloseFigure();
-            return p;
+            using (Stream stream = typeof(Icons).Assembly.GetManifestResourceStream(name))
+            {
+                if (stream == null) return null;
+                using (Bitmap image = new Bitmap(stream)) return new Bitmap(image);
+            }
         }
 
         public static void Logo(Graphics g, Color c, float x, float y, float size)
         {
-            float s = size / 24f;
-            using (SolidBrush b = new SolidBrush(c))
-            {
-                using (GraphicsPath p = Spark(x + 10.5f * s, y + 13f * s, 9.5f * s)) g.FillPath(b, p);
-                using (GraphicsPath p = Spark(x + 19.5f * s, y + 4.5f * s, 3.6f * s)) g.FillPath(b, p);
-            }
+            if (Mark != null) g.DrawImage(Mark, x, y, size, size);
         }
 
         public static void Draw(Graphics g, string kind, Color color, float x, float y, float size, float stroke)
         {
-            if (kind == "logo") { Logo(g, color, x, y, size); return; }
-            GraphicsState state = g.Save();
-            g.TranslateTransform(x, y);
-            g.ScaleTransform(size / 24f, size / 24f);
-            using (Pen p = new Pen(color, stroke))
+            switch (kind)
             {
-                p.StartCap = LineCap.Round; p.EndCap = LineCap.Round; p.LineJoin = LineJoin.Round;
-                switch (kind)
-                {
-                    case "zoomin":
-                        g.DrawEllipse(p, 4f, 4f, 14f, 14f); g.DrawLine(p, 16f, 16f, 20.5f, 20.5f);
-                        g.DrawLine(p, 11f, 8f, 11f, 14f); g.DrawLine(p, 8f, 11f, 14f, 11f); break;
-                    case "zoomout":
-                        g.DrawEllipse(p, 4f, 4f, 14f, 14f); g.DrawLine(p, 16f, 16f, 20.5f, 20.5f);
-                        g.DrawLine(p, 8f, 11f, 14f, 11f); break;
-                    case "fit":
-                        g.DrawLines(p, P(3, 8, 3, 3, 8, 3)); g.DrawLines(p, P(16, 3, 21, 3, 21, 8));
-                        g.DrawLines(p, P(21, 16, 21, 21, 16, 21)); g.DrawLines(p, P(8, 21, 3, 21, 3, 16)); break;
-                    case "rotate":
-                        g.DrawArc(p, 3f, 3f, 18f, 18f, 30f, 290f);
-                        g.DrawLines(p, P(20, 2.5f, 20, 7.5f, 15, 7.5f)); break;
-                    case "repeat":
-                        g.DrawArc(p, 4f, 4f, 16f, 16f, 190f, 150f);
-                        g.DrawLines(p, P(17.5f, 2.5f, 18.6f, 7.2f, 14f, 8f));
-                        g.DrawArc(p, 4f, 4f, 16f, 16f, 10f, 150f);
-                        g.DrawLines(p, P(6.5f, 21.5f, 5.4f, 16.8f, 10f, 16f)); break;
-                    case "history":
-                        g.DrawEllipse(p, 4f, 4f, 16f, 16f); g.DrawLines(p, P(12, 8, 12, 12, 15, 14)); break;
-                    case "timer":
-                        g.DrawEllipse(p, 5f, 6.5f, 14f, 14f); g.DrawLine(p, 12f, 13.5f, 12f, 10f);
-                        g.DrawLine(p, 10f, 3f, 14f, 3f); g.DrawLine(p, 12f, 3f, 12f, 6.5f); break;
-                    case "gear":
-                        g.DrawEllipse(p, 8.5f, 8.5f, 7f, 7f);
-                        for (int i = 0; i < 8; i++)
-                        {
-                            double a = i * Math.PI / 4;
-                            g.DrawLine(p, (float)(12 + Math.Cos(a) * 6.3), (float)(12 + Math.Sin(a) * 6.3),
-                                (float)(12 + Math.Cos(a) * 9.3), (float)(12 + Math.Sin(a) * 9.3));
-                        }
-                        g.DrawEllipse(p, 5.7f, 5.7f, 12.6f, 12.6f); break;
-                    case "trash":
-                        g.DrawLine(p, 4f, 7f, 20f, 7f); g.DrawLines(p, P(6, 7, 7, 20, 17, 20, 18, 7));
-                        g.DrawLines(p, P(9, 7, 9, 4, 15, 4, 15, 7));
-                        g.DrawLine(p, 10f, 11f, 10f, 16.5f); g.DrawLine(p, 14f, 11f, 14f, 16.5f); break;
-                    case "plus":
-                        g.DrawLine(p, 12f, 5f, 12f, 19f); g.DrawLine(p, 5f, 12f, 19f, 12f); break;
-                    case "folder":
-                        g.DrawPolygon(p, P(3, 5, 9, 5, 11, 7, 21, 7, 21, 19, 3, 19)); break;
-                    case "file":
-                        g.DrawPolygon(p, P(6, 3, 14, 3, 19, 8, 19, 21, 6, 21)); g.DrawLines(p, P(14, 3, 14, 8, 19, 8)); break;
-                    case "image":
-                        g.DrawRectangle(p, 3.5f, 5f, 17f, 14f); g.DrawLines(p, P(4, 17, 9.5f, 11.5f, 13, 15, 15.5f, 12.5f, 20, 17));
-                        g.DrawEllipse(p, 14.5f, 7.5f, 2.5f, 2.5f); break;
-                    case "scan":
-                        g.DrawLine(p, 3f, 12f, 21f, 12f);
-                        g.DrawLines(p, P(6, 8, 6, 4, 18, 4, 18, 8)); g.DrawLines(p, P(6, 16, 6, 20, 18, 20, 18, 16)); break;
-                    case "eye":
-                        g.DrawEllipse(p, 9f, 9f, 6f, 6f);
-                        g.DrawBezier(p, 2f, 12f, 6f, 5f, 18f, 5f, 22f, 12f);
-                        g.DrawBezier(p, 2f, 12f, 6f, 19f, 18f, 19f, 22f, 12f); break;
-                    case "chevl":
-                        g.DrawLines(p, P(15, 5, 8, 12, 15, 19)); break;
-                    case "chevr":
-                        g.DrawLines(p, P(9, 5, 16, 12, 9, 19)); break;
-                    case "check":
-                        g.DrawLines(p, P(5, 12.5f, 10, 17.5f, 19.5f, 7)); break;
-                    case "stop":
-                        g.DrawRectangle(p, 7f, 7f, 10f, 10f); break;
-                    case "min":
-                        g.DrawLine(p, 6f, 12f, 18f, 12f); break;
-                    case "max":
-                        g.DrawRectangle(p, 6f, 6f, 12f, 12f); break;
-                    case "close":
-                        g.DrawLine(p, 6f, 6f, 18f, 18f); g.DrawLine(p, 18f, 6f, 6f, 18f); break;
-                }
+                case "zoomin": kind = "zoom-in"; break;
+                case "zoomout": kind = "zoom-out"; break;
+                case "fit": kind = "maximize"; break;
+                case "rotate": kind = "rotate-cw"; break;
+                case "repeat": kind = "refresh-cw"; break;
+                case "gear": kind = "settings"; break;
+                case "trash": kind = "trash-2"; break;
+                case "folder": kind = "folder-open"; break;
+                case "scan": kind = "scan-line"; break;
+                case "chevl": kind = "chevron-left"; break;
+                case "chevr": kind = "chevron-right"; break;
+                case "stop": case "max": kind = "square"; break;
+                case "min": kind = "minus"; break;
+                case "close": kind = "x"; break;
             }
-            g.Restore(state);
+            int index = Array.IndexOf(Names, kind);
+            if (index < 0 || Atlas == null) return;
+            ColorMatrix tint = new ColorMatrix();
+            tint.Matrix00 = color.R / 255f;
+            tint.Matrix11 = color.G / 255f;
+            tint.Matrix22 = color.B / 255f;
+            tint.Matrix33 = color.A / 255f;
+            using (ImageAttributes attributes = new ImageAttributes())
+            {
+                attributes.SetColorMatrix(tint);
+                g.DrawImage(Atlas, Rectangle.Round(new RectangleF(x, y, size, size)),
+                    index % 8 * 96, index / 8 * 96, 96, 96, GraphicsUnit.Pixel, attributes);
+            }
         }
     }
 }

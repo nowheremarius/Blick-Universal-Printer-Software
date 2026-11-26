@@ -11,29 +11,56 @@ using System.Windows.Forms;
 namespace Blick
 {
     // Базовый элемент: рисует себя в буфер с альфой поверх того, что под ним (см. Glass.Paint)
-    class BaseCtl : Control, IAnimated, ISnapshot
+    class BaseCtl : Control, IAnimated
     {
         protected bool hover;
         protected float hv;
         protected bool TrackHover = true;
-        readonly GlassBuffer buf = new GlassBuffer();
+        protected bool Pressed;
 
         public BaseCtl()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.ResizeRedraw | ControlStyles.Opaque, true);
-            SetStyle(ControlStyles.OptimizedDoubleBuffer, false);
+            DoubleBuffered = true;
         }
         protected void Kick() { Anim.Kick(this); }
-        public Bitmap Snapshot { get { return buf.Bmp; } }
+
 
         protected override void OnPaintBackground(PaintEventArgs e) { }
-        protected override void OnPaint(PaintEventArgs e) { Glass.Paint(this, e, buf, Render); }
-        protected virtual void Render(Graphics g) { }
-
-        protected override void Dispose(bool disposing)
+        protected override void OnPaint(PaintEventArgs e)
         {
-            if (disposing) buf.Dispose();
-            base.Dispose(disposing);
+            Graphics g = e.Graphics;
+            Theme.Hq(g);
+            Glass.PaintBehind(g, this);
+            ISurface surface = this as ISurface;
+            if (surface != null) surface.PaintSurface(g);
+            Render(g);
+            if (Focused && ShowFocusCues && TabStop)
+                Theme.StrokeRound(g, Theme.Text2, 1, new RectangleF(2, 2, Width - 5, Height - 5), Theme.D(8));
+            if (Pressed && Enabled && Cursor == Cursors.Hand)
+                Theme.FillRound(g, Color.FromArgb(30, Color.White), ClientRectangle, Theme.D(8));
+        }
+        protected virtual void Render(Graphics g) { }
+        protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
+        protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); Invalidate(); }
+        protected override void OnMouseDown(MouseEventArgs e) { base.OnMouseDown(e); Pressed = e.Button == MouseButtons.Left; Invalidate(); }
+        protected override void OnMouseCaptureChanged(EventArgs e) { base.OnMouseCaptureChanged(e); Pressed = false; Invalidate(); }
+        protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); Pressed = false; Invalidate(); }
+        protected override bool IsInputKey(Keys keyData)
+        {
+            Keys key = keyData & Keys.KeyCode;
+            if ((this is ChipGroup || this is TabBar) && (key == Keys.Left || key == Keys.Right || key == Keys.Down)) return true;
+            return base.IsInputKey(keyData);
+        }
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Space && (this is IconButton || this is PillButton || this is GlassLink || this is SwitchRow))
+            {
+                if (this is SwitchRow) OnMouseClick(new MouseEventArgs(MouseButtons.Left, 1, Width / 2, Height / 2, 0));
+                else OnClick(EventArgs.Empty);
+                e.Handled = true;
+            }
+            base.OnKeyDown(e);
         }
 
         protected float marq;
@@ -77,7 +104,7 @@ namespace Blick
         {
             if (IsDisposed) return false;
             float target = hover && Enabled ? 1f : 0f;
-            float n = Anim.To(hv, target, 0.22f);
+            float n = Anim.To(hv, target, 0.36f);
             bool changed = n != hv;
             hv = n;
             bool more = ExtraStep();
@@ -108,8 +135,8 @@ namespace Blick
     {
         public int Style;
         public Padding CardInset = Padding.Empty;
-        public float Radius = 20f;
-        public Surface(int style) { Style = style; TrackHover = false; }
+        public float Radius = 10f;
+        public Surface(int style) { Style = style; TrackHover = false; TabStop = false; }
 
         public RectangleF CardRect
         {
@@ -122,10 +149,12 @@ namespace Blick
 
         public void PaintSurface(Graphics g)
         {
-            if (Style == 1) Theme.GlassRect(g, CardRect, Theme.D(Radius), Theme.Raised, Theme.Stroke);
+            if (Style == 1) Theme.GlassRect(g, CardRect, Theme.D(Radius), Theme.Panel, Theme.Stroke);
             else if (Style == 2)
-                using (LinearGradientBrush lg = new LinearGradientBrush(new RectangleF(0, 0, 2, Math.Max(2, Height)), Theme.Stroke, Color.FromArgb(0, Theme.Stroke), LinearGradientMode.Vertical))
-                using (Pen p = new Pen(lg, 1f)) g.DrawLine(p, Width - 1, Theme.D(6), Width - 1, Height - Theme.D(18));
+            {
+                using (SolidBrush brush = new SolidBrush(Theme.Panel)) g.FillRectangle(brush, ClientRectangle);
+                using (Pen pen = new Pen(Theme.Stroke)) g.DrawLine(pen, Width - 1, 0, Width - 1, Height);
+            }
         }
 
         // обычный Control не учитывает Padding при раскладке Dock — учитываем сами
@@ -142,95 +171,17 @@ namespace Blick
         protected override void OnResize(EventArgs e) { base.OnResize(e); Invalidate(true); }
     }
 
-    // Размытый снимок окна под всплывающими окнами (настройки, история)
-    class BlurOverlay : BaseCtl
-    {
-        Bitmap sharp, blurred;
-        float t, target = 1f;
-        bool removing;
-
-        public BlurOverlay(Bitmap snap)
-        {
-            TrackHover = false;
-            sharp = snap;
-            blurred = WindowShot.Blur(snap, 5);
-            Kick();
-        }
-
-        public void Show(bool on) { target = on ? 1f : 0f; removing = false; Kick(); }
-
-        protected override bool ExtraStep()
-        {
-            float n = Anim.To(t, target, 0.3f);
-            bool changed = n != t;
-            t = n;
-            if (changed) Invalidate();
-            if (t <= 0f && target <= 0f && !removing)
-            {
-                removing = true;
-                Control p = Parent;
-                if (p != null && p.IsHandleCreated)
-                    p.BeginInvoke((MethodInvoker)delegate
-                    {
-                        if (IsDisposed || !removing) return;
-                        if (Parent != null) Parent.Controls.Remove(this);
-                        Dispose();
-                    });
-                return false;
-            }
-            return t != target;
-        }
-
-        static void DrawAlpha(Graphics g, Bitmap b, Rectangle r, float a)
-        {
-            ColorMatrix cm = new ColorMatrix();
-            cm.Matrix33 = a;
-            using (ImageAttributes ia = new ImageAttributes())
-            {
-                ia.SetColorMatrix(cm);
-                g.DrawImage(b, r, 0, 0, b.Width, b.Height, GraphicsUnit.Pixel, ia);
-            }
-        }
-
-        protected override void Render(Graphics g)
-        {
-            if (sharp == null) return;
-            Rectangle r = new Rectangle(0, 0, sharp.Width, sharp.Height);
-            g.CompositingMode = CompositingMode.SourceCopy;
-            if (t >= 0.99f) g.DrawImage(blurred, r, 0, 0, blurred.Width, blurred.Height, GraphicsUnit.Pixel);
-            else
-            {
-                DrawAlpha(g, sharp, r, 1f - t);
-                g.CompositingMode = CompositingMode.SourceOver;
-                DrawAlpha(g, blurred, r, t);
-            }
-            g.CompositingMode = CompositingMode.SourceOver;
-            using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(40 * t), 0, 0, 0))) g.FillRectangle(b, 0, 0, Width, Height);
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                if (sharp != null) { sharp.Dispose(); sharp = null; }
-                if (blurred != null) { blurred.Dispose(); blurred = null; }
-            }
-            base.Dispose(disposing);
-        }
-    }
-
     // Надпись на стекле (обычный Label рисует через GDI и на стекле становится прозрачным)
     class GlassLabel : BaseCtl
     {
         public Color Color;
         public int Align;
-        public bool Wrap;
-        public GlassLabel(string text, Font f, Color c) { Text = text; Font = f; Color = c; TrackHover = false; }
+
+        public GlassLabel(string text, Font f, Color c) { TabStop = false; Text = text; Font = f; Color = c; TrackHover = false; }
         protected override void Render(Graphics g)
         {
             RectangleF r = new RectangleF(0, 0, Width, Height);
-            if (Wrap) Theme.TextWrap(g, Text, Font, r, Color);
-            else Theme.Write(g, Text, Font, r, Color, Align, true);
+            Theme.Write(g, Text, Font, r, Color, Align, true);
         }
     }
 
@@ -257,7 +208,7 @@ namespace Blick
     {
         public string Kind;
         public int IconPx;
-        public bool WindowButton;
+        public bool WindowButton, Selected;
         public IconButton(string kind, int iconPx, bool windowButton)
         {
             Kind = kind; IconPx = iconPx; WindowButton = windowButton; Cursor = Cursors.Hand;
@@ -266,11 +217,12 @@ namespace Blick
         {
             RectangleF r = new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
             float t = hv;
+            if (Selected) Theme.FillRound(g, Theme.Hover, r, Theme.D(9));
             bool close = WindowButton && Kind == "close";
             if (t > 0.01f && Enabled)
             {
                 float rad = Theme.D(WindowButton ? 8 : 12);
-                if (close) Theme.FillRound(g, Color.FromArgb((int)(220 * t), 0xc4, 0x2b, 0x3a), r, rad);
+                if (close) Theme.FillRound(g, Theme.Fade(Theme.Press, t), r, rad);
                 else
                 {
                     Theme.FillRound(g, Theme.Fade(Theme.Hover, t), r, rad);
@@ -281,13 +233,66 @@ namespace Blick
             if (!Enabled) c = Theme.Dim;
             else if (close) c = Theme.Mix(Theme.Muted, Color.White, t);
             else c = Theme.Mix(Theme.Muted, Theme.Text, t);
-            Icons.Draw(g, Kind, c, (Width - IconPx) / 2f, (Height - IconPx) / 2f, IconPx, WindowButton ? 2.2f : 1.8f);
+            bool label = Text.Length > 0 && Width > Theme.D(75);
+            if (label) Theme.Write(g, Text, Theme.FontBody, new RectangleF(Theme.D(43), 0, Width - Theme.D(48), Height), Enabled ? Theme.Text : Theme.Dim, 0, true);
+            Icons.Draw(g, Kind, Selected ? Theme.Text : c, label ? Theme.D(13) : (Width - IconPx) / 2f, (Height - IconPx) / 2f, IconPx, WindowButton ? 2.2f : 1.8f);
+        }
+    }
+
+    static class WorkspaceMenu
+    {
+        sealed class MenuColors : ProfessionalColorTable
+        {
+            public override Color ToolStripDropDownBackground { get { return Theme.Panel; } }
+            public override Color ImageMarginGradientBegin { get { return Theme.Panel; } }
+            public override Color ImageMarginGradientMiddle { get { return Theme.Panel; } }
+            public override Color ImageMarginGradientEnd { get { return Theme.Panel; } }
+            public override Color MenuItemSelected { get { return Theme.Hover; } }
+            public override Color MenuItemBorder { get { return Theme.StrokeStrong; } }
+            public override Color MenuBorder { get { return Theme.StrokeStrong; } }
+            public override Color CheckBackground { get { return Theme.Hover; } }
+        }
+        public static ContextMenuStrip Create()
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Renderer = new ToolStripProfessionalRenderer(new MenuColors());
+            menu.ForeColor = Theme.Text;
+            menu.Font = Theme.FontBody;
+            menu.Closed += delegate { menu.Dispose(); };
+            return menu;
         }
     }
 
     class ChipGroup : BaseCtl
     {
         public string[] Items;
+        public string FieldIcon;
+        void Pick(int index)
+        {
+            if (index == sel || index < 0 || index >= Items.Length) return;
+            SelectedIndex = index;
+            if (Changed != null) Changed(this, EventArgs.Empty);
+        }
+        void OpenMenu()
+        {
+            ContextMenuStrip menu = WorkspaceMenu.Create();
+            for (int i = 0; i < Items.Length; i++)
+            {
+                int index = i;
+                ToolStripMenuItem item = new ToolStripMenuItem(Items[i]);
+                item.Checked = i == sel;
+                item.Click += delegate { Pick(index); };
+                menu.Items.Add(item);
+            }
+            menu.MinimumSize = new Size(Width, 0);
+            menu.Show(this, new Point(0, Height));
+        }
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (FieldIcon != null && (e.KeyCode == Keys.Space || e.KeyCode == Keys.Down)) { OpenMenu(); e.Handled = true; }
+            else if (e.KeyCode == Keys.Left || e.KeyCode == Keys.Right) { Pick(sel + (e.KeyCode == Keys.Left ? -1 : 1)); e.Handled = true; }
+            base.OnKeyDown(e);
+        }
         int sel;
         int hoverIdx = -1;
         float[] hvs, selT;
@@ -313,8 +318,8 @@ namespace Blick
             for (int i = 0; i < Items.Length; i++)
             {
                 float th = i == hoverIdx && hover && Enabled ? 1f : 0f, ts = i == sel ? 1f : 0f;
-                hvs[i] = Anim.To(hvs[i], th, 0.25f);
-                selT[i] = Anim.To(selT[i], ts, 0.22f);
+                hvs[i] = Anim.To(hvs[i], th, 0.36f);
+                selT[i] = Anim.To(selT[i], ts, 0.36f);
                 if (hvs[i] != th || selT[i] != ts) more = true;
             }
             return more;
@@ -333,9 +338,20 @@ namespace Blick
         protected override void Render(Graphics g)
         {
             RectangleF tr = new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
-            float rad = Math.Min(tr.Height / 2f, Theme.D(14));
+            if (FieldIcon != null)
+            {
+                Theme.GlassRect(g, tr, Theme.D(8), hover ? Theme.Hover : Theme.Raised, Theme.StrokeStrong);
+                Color ink = Enabled ? Theme.Text : Theme.Dim;
+                int icon = Theme.D(18);
+                Icons.Draw(g, FieldIcon, ink, Theme.D(9), (Height - icon) / 2f, icon, 1.65f);
+                Icons.Draw(g, "chevron-down", ink, Width - Theme.D(25), (Height - icon) / 2f, icon, 1.65f);
+                Theme.Write(g, sel >= 0 ? Items[sel] : L.T("Вручную", "Custom"), Theme.FontBody,
+                    new RectangleF(Theme.D(35), 0, Width - Theme.D(64), Height), ink, 0, true);
+                return;
+            }
+            float rad = Math.Min(tr.Height / 2f, Theme.D(10));
             Theme.FillRound(g, Theme.Track, tr, rad);
-            Theme.StrokeRound(g, Color.FromArgb(18, 190, 205, 255), 1f, tr, rad);
+            Theme.StrokeRound(g, Theme.Stroke, 1f, tr, rad);
             ResetMarqueeFlag();
             for (int i = 0; i < Items.Length; i++)
             {
@@ -361,6 +377,7 @@ namespace Blick
         protected override void OnMouseLeave(EventArgs e) { hoverIdx = -1; base.OnMouseLeave(e); }
         protected override void OnMouseClick(MouseEventArgs e)
         {
+            if (FieldIcon != null) { if (e.Button == MouseButtons.Left) OpenMenu(); return; }
             int i = HitIndex(e.Location);
             if (i >= 0 && i != sel && Enabled)
             {
@@ -387,7 +404,7 @@ namespace Blick
         protected override bool ExtraStep()
         {
             float t = isOn && Enabled ? 1f : 0f;
-            knob = Anim.To(knob, t, 0.25f);
+            knob = Anim.To(knob, t, 0.36f);
             return knob != t;
         }
         protected override void Render(Graphics g)
@@ -403,18 +420,19 @@ namespace Blick
             int pad = Theme.D(14);
             int textW = Width - pad * 3 - sw;
             ResetMarqueeFlag();
-            int ty = (Height - Theme.D(36)) / 2;
+            bool detail = Height >= Theme.D(38);
+            int ty = (Height - Theme.D(detail ? 36 : 19)) / 2;
             DrawMarquee(g, Title, Theme.FontChip, new RectangleF(pad, ty, textW, Theme.D(19)), Enabled ? Theme.Text : Theme.Dim, hover, false);
             string sub = ShowDisabledSub && DisabledSub != null ? DisabledSub : Sub;
-            DrawMarquee(g, sub, Theme.FontSmall, new RectangleF(pad, ty + Theme.D(19), textW, Theme.D(17)), Enabled ? Theme.Muted : Theme.Dim, hover, false);
+            if (detail) DrawMarquee(g, sub, Theme.FontSmall, new RectangleF(pad, ty + Theme.D(19), textW, Theme.D(17)), Enabled ? Theme.Muted : Theme.Dim, hover, false);
 
             RectangleF s = new RectangleF(Width - pad - sw, (Height - sh) / 2f, sw, sh);
-            Color track = Enabled ? Theme.Mix(Theme.Inset, Theme.Blue, knob) : Theme.Track;
+            Color track = Enabled ? Theme.Mix(Theme.Inset, Theme.Selection, knob) : Theme.Track;
             Theme.FillRound(g, track, s, sh / 2f);
             Theme.StrokeRound(g, Theme.Fade(Theme.StrokeStrong, 1f - knob * 0.6f), 1f, s, sh / 2f);
             float k = sh - Theme.D(6);
             float kx = s.X + Theme.D(3) + (s.Width - Theme.D(6) - k) * knob;
-            Color kc = !Enabled ? Theme.Dim : Theme.Mix(Color.FromArgb(255, 150, 160, 184), Color.White, knob);
+            Color kc = !Enabled ? Theme.Dim : Theme.Mix(Theme.Muted, Theme.Base, knob);
             Theme.Dot(g, kc, kx + k / 2f, s.Y + sh / 2f, k);
         }
         protected override void OnMouseClick(MouseEventArgs e)
@@ -440,7 +458,7 @@ namespace Blick
         protected override void Render(Graphics g)
         {
             RectangleF r = new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
-            float rad = Height / 2f;
+            float rad = Theme.D(10);
             Color tc;
             if (Primary)
             {
@@ -451,10 +469,10 @@ namespace Blick
             else
             {
                 if (hv > 0.01f) Theme.FillRound(g, Theme.Fade(Theme.Hover, hv), r, rad);
-                Theme.Edge(g, r, rad, Theme.Mix(Theme.StrokeStrong, Color.FromArgb(110, 210, 222, 255), hv), Theme.Stroke);
+                Theme.Edge(g, r, rad, Theme.Mix(Theme.StrokeStrong, Theme.StrokeStrong, hv), Theme.Stroke);
                 tc = Enabled ? Theme.Text : Theme.Dim;
             }
-            int iconPx = IconKind != null ? Theme.D(17) : 0;
+            int iconPx = IconKind != null ? Theme.D(20) : 0;
             if (IconOnly)
             {
                 Icons.Draw(g, IconKind, tc, (Width - iconPx) / 2f, (Height - iconPx) / 2f, iconPx, 2f);
@@ -472,6 +490,17 @@ namespace Blick
     // вкладки
     class TabBar : BaseCtl
     {
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            int next = sel + (e.KeyCode == Keys.Right ? 1 : e.KeyCode == Keys.Left ? -1 : 0);
+            if (next != sel && next >= 0 && next < Items.Length)
+            {
+                SelectedIndex = next;
+                if (Changed != null) Changed(this, EventArgs.Empty);
+                e.Handled = true;
+            }
+            base.OnKeyDown(e);
+        }
         public string[] Items;
         int sel;
         float pos;
@@ -479,7 +508,7 @@ namespace Blick
         public event EventHandler Changed;
         public TabBar(params string[] items) { Items = items; Cursor = Cursors.Hand; }
         public int SelectedIndex { get { return sel; } set { sel = value; if (!IsHandleCreated) pos = value; Kick(); Invalidate(); } }
-        protected override bool ExtraStep() { pos = Anim.To(pos, sel, 0.25f); return pos != sel; }
+        protected override bool ExtraStep() { pos = Anim.To(pos, sel, 0.36f); return pos != sel; }
         RectangleF Cell(float i)
         {
             float pad = Theme.D(3);
@@ -490,7 +519,7 @@ namespace Blick
         {
             RectangleF r = new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
             Theme.FillRound(g, Theme.Track, r, r.Height / 2f);
-            Theme.StrokeRound(g, Color.FromArgb(18, 190, 205, 255), 1f, r, r.Height / 2f);
+            Theme.StrokeRound(g, Theme.Stroke, 1f, r, r.Height / 2f);
             RectangleF ind = Cell(pos);
             Theme.SelGlass(g, ind, ind.Height / 2f, 1f);
             for (int i = 0; i < Items.Length; i++)
@@ -526,7 +555,6 @@ namespace Blick
         readonly MainForm form;
         string device = "";
         int state; // 0 — ищем, 1 — подключён, 2 — не найден
-        public readonly IconButton Gear;
         readonly IconButton bMin, bMax, bClose;
         public Action DeviceClicked;
         RectangleF chipRect;
@@ -535,15 +563,14 @@ namespace Blick
         public TitleBar(MainForm f)
         {
             form = f; TrackHover = false;
-            int ip = Theme.D(14);
+            int ip = Theme.D(18);
             bMin = new IconButton("min", ip, true);
             bMax = new IconButton("max", ip, true);
             bClose = new IconButton("close", ip, true);
-            Gear = new IconButton("gear", Theme.D(19), true);
             bMin.Click += delegate { form.WindowState = FormWindowState.Minimized; };
             bMax.Click += delegate { form.ToggleMax(); };
             bClose.Click += delegate { form.Close(); };
-            Controls.Add(Gear); Controls.Add(bMin); Controls.Add(bMax); Controls.Add(bClose);
+            Controls.Add(bMin); Controls.Add(bMax); Controls.Add(bClose);
         }
 
         public void SetDevice(string text, int st) { device = text; state = st; Invalidate(); }
@@ -557,7 +584,6 @@ namespace Blick
             bClose.SetBounds(x, y, w, h); x -= w + Theme.D(2);
             bMax.SetBounds(x, y, w, h); x -= w + Theme.D(2);
             bMin.SetBounds(x, y, w, h); x -= w + Theme.D(12);
-            Gear.SetBounds(x, y, w, h);
         }
 
         protected override void Render(Graphics g)
@@ -566,26 +592,22 @@ namespace Blick
             float x = Theme.D(16);
             float tile = Theme.D(32);
             RectangleF tr = new RectangleF(x + 0.5f, cy - tile / 2f + 0.5f, tile - 1, tile - 1);
-            Theme.FillRound(g, Color.FromArgb(150, 4, 8, 20), tr, Theme.D(10));
-            Theme.Edge(g, tr, Theme.D(10), Color.FromArgb(110, 210, 222, 255), Theme.EdgeBottom);
-            float lp = Theme.D(18);
+            float lp = Theme.D(29);
             Icons.Logo(g, Theme.Text, tr.X + (tr.Width - lp) / 2f, tr.Y + (tr.Height - lp) / 2f, lp);
             x += tile + Theme.D(12);
             string word = "Blick";
             SizeF ws = Theme.MeasureF(g, word, Theme.FontLogo);
             Theme.TextAt(g, word, Theme.FontLogo, x, cy - ws.Height / 2f, Theme.Text);
-            x += ws.Width + Theme.D(18);
+            x = Math.Max(x + ws.Width + Theme.D(18), form.NavWidth + Theme.D(14));
 
             // строка устройства
             SizeF ds = Theme.MeasureF(g, device, Theme.FontSmall);
             float ch = Theme.D(28);
-            float maxW = Gear.Left - Theme.D(16) - x;
+            float maxW = bMin.Left - Theme.D(16) - x;
             RectangleF chip = new RectangleF(x + 0.5f, cy - ch / 2f + 0.5f, Math.Min(ds.Width + Theme.D(38), Math.Max(Theme.D(60), maxW)), ch - 1);
-            if (chipHover) Theme.FillRound(g, Theme.Hover, chip, ch / 2f);
+            Theme.FillRound(g, chipHover ? Theme.Hover : Theme.Raised, chip, Theme.D(8));
             Theme.Edge(g, chip, ch / 2f, chipHover ? Theme.StrokeStrong : Theme.Stroke, Theme.EdgeBottom);
-            Color dot = state == 1 ? Theme.Blue : (state == 2 ? Theme.Error : Theme.Muted);
-            if (state == 1) Theme.Dot(g, Color.FromArgb(70, Theme.Blue), chip.X + Theme.D(14), cy, Theme.D(13));
-            Theme.Dot(g, dot, chip.X + Theme.D(14), cy, Theme.D(6));
+            Icons.Draw(g, "printer", Theme.Text2, chip.X + Theme.D(6), cy - Theme.D(9), Theme.D(18), 1.65f);
             Theme.Write(g, device, Theme.FontSmall, new RectangleF(chip.X + Theme.D(26), chip.Y, chip.Width - Theme.D(34), ch), state == 1 ? Theme.Text2 : Theme.Muted, 0, true);
             chipRect = chip;
         }
@@ -667,7 +689,7 @@ namespace Blick
             RectangleF r = new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
             float rad = Theme.D(14);
             Theme.FillRound(g, Theme.Inset, r, rad);
-            if (flash > 0f) Theme.FillRound(g, Color.FromArgb((int)(40 * flash), Theme.Blue), r, rad);
+            if (flash > 0f) Theme.FillRound(g, Color.FromArgb((int)(40 * flash), Theme.Selection), r, rad);
             Theme.Edge(g, r, rad, Theme.Mix(Theme.Stroke, Theme.StrokeStrong, flash), Theme.EdgeBottom);
             int pad = Theme.D(14), ip = Theme.D(17);
             float row = Theme.D(12);
@@ -732,8 +754,8 @@ namespace Blick
             };
             t.Draw += delegate(object s, DrawToolTipEventArgs e)
             {
-                using (SolidBrush b = new SolidBrush(Color.FromArgb(255, 14, 20, 36))) e.Graphics.FillRectangle(b, e.Bounds);
-                using (Pen p = new Pen(Color.FromArgb(255, 44, 56, 84))) e.Graphics.DrawRectangle(p, 0, 0, e.Bounds.Width - 1, e.Bounds.Height - 1);
+                using (SolidBrush b = new SolidBrush(Theme.Panel)) e.Graphics.FillRectangle(b, e.Bounds);
+                using (Pen p = new Pen(Theme.StrokeStrong)) e.Graphics.DrawRectangle(p, 0, 0, e.Bounds.Width - 1, e.Bounds.Height - 1);
                 TextRenderer.DrawText(e.Graphics, e.ToolTipText, Theme.FontSmall, e.Bounds, Theme.Text,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
             };
@@ -743,7 +765,6 @@ namespace Blick
 
     class PopupForm : GlassWindow
     {
-        public bool SuppressClose;
         public PopupForm()
         {
             FullFrame = false;
@@ -754,7 +775,7 @@ namespace Blick
         protected override void OnDeactivate(EventArgs e)
         {
             base.OnDeactivate(e);
-            if (!SuppressClose) BeginInvoke((MethodInvoker)delegate { if (!IsDisposed) Close(); });
+            BeginInvoke((MethodInvoker)delegate { if (!IsDisposed) Close(); });
         }
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {

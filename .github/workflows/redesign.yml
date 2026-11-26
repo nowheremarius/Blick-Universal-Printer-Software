@@ -1,0 +1,41 @@
+name: Check redesign on Windows
+on:
+  push:
+    branches: [redesign]
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build portable preview
+        shell: cmd
+        run: build.bat <nul
+      - name: Test PDF writes, rollback and OCR timeouts
+        shell: pwsh
+        run: |
+          $compiler = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          & $compiler /nologo /codepage:65001 /target:exe /out:ReleaseChecks.exe /main:Blick.ReleaseChecks /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:Microsoft.VisualBasic.dll Theme.cs Controls.cs Preview.cs Imaging.cs Scan.cs MainForm.cs tests\ReleaseChecks.cs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          .\ReleaseChecks.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $nsis = Join-Path ${env:ProgramFiles(x86)} 'NSIS\makensis.exe'
+          if (!(Test-Path $nsis)) { choco install nsis -y --no-progress }
+          & $nsis installer\Blick.nsi
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Blick-redesign-Windows
+          path: |
+            Blick.exe
+            Blick-Setup.exe
+            assets/fonts/LICENSE.txt
+            assets/lucide/LICENSE
+          if-no-files-found: error

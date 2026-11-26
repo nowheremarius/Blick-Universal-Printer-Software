@@ -35,8 +35,9 @@ namespace Blick
         readonly System.Windows.Forms.Timer secTimer = new System.Windows.Forms.Timer();
         bool collapsed, autoCollapsed;
         PopupForm popup;
-        BlurOverlay blur;
-        string deviceName;
+        string deviceName, requestedDevice;
+        bool detecting;
+        List<Scanner.Device> devices = new List<Scanner.Device>();
         int deviceState; // 0 — ищем, 1 — подключён, 2 — не найден
 
         TitleBar title;
@@ -55,6 +56,11 @@ namespace Blick
         PillButton bPreview, bScan;
         IconButton iZoomIn, iZoomOut, iFit, iRotate, iRepeat, iHistory, iTrash;
         ToolTip tips;
+        Surface toolbar;
+        IconButton navScan, navDevices, navSettings, previousPage, nextPage;
+        GlassLabel pageCounter, parameterTitle;
+        public int NavWidth { get { return rail == null ? D(172) : rail.Width; } }
+
 
         static int D(float v) { return Theme.D(v); }
 
@@ -132,7 +138,8 @@ namespace Blick
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
-            if (right == null) return;
+            if (right == null || navSettings == null || navSettings.IsDisposed) return;
+            LayoutRail();
             if (!collapsed && ClientSize.Width < D(1080)) { autoCollapsed = true; SetCollapsed(true, false); }
             else if (collapsed && autoCollapsed && ClientSize.Width >= D(1140)) { autoCollapsed = false; SetCollapsed(false, false); }
         }
@@ -171,7 +178,7 @@ namespace Blick
         string DeviceText()
         {
             if (deviceState == 1) return deviceName + L.T(" · подключён", " · connected");
-            if (deviceState == 2) return L.T("Сканер не найден · проверить снова", "Scanner not found · check again");
+            if (deviceState == 2) return L.T("Сканер не найден", "Scanner not found");
             return L.T("Ищу сканер…", "Looking for a scanner…");
         }
 
@@ -193,13 +200,17 @@ namespace Blick
             // отступы совпадают с карточкой справа: верх и низ блоков на одной линии
             center.Padding = new Padding(D(14), D(4), D(10), D(14));
             preview = new PreviewPanel(); preview.Dock = DockStyle.Fill;
-            Surface spB = new Surface(0); spB.Dock = DockStyle.Bottom; spB.Height = D(12);
-            thumbs = new ThumbStrip(); thumbs.Dock = DockStyle.Bottom; thumbs.Height = D(80);
-            center.Controls.Add(preview);
-            center.Controls.Add(spB);
+            thumbs = new ThumbStrip(); thumbs.Dock = DockStyle.Left; thumbs.Width = D(128);
+            Surface gap = new Surface(0); gap.Dock = DockStyle.Left; gap.Width = D(10);
+            toolbar = new Surface(1); toolbar.Dock = DockStyle.Bottom; toolbar.Height = D(44);
+            Surface canvas = new Surface(0); canvas.Dock = DockStyle.Fill;
+            canvas.Controls.Add(preview);
+            canvas.Controls.Add(toolbar);
+            center.Controls.Add(canvas);
+            center.Controls.Add(gap);
             center.Controls.Add(thumbs);
 
-            rail = new Surface(2); rail.Dock = DockStyle.Left; rail.Width = D(68);
+            rail = new Surface(2); rail.Dock = DockStyle.Left; rail.Width = D(172);
             iZoomIn = Tool("zoomin", L.T("Увеличить (колесо мыши)", "Zoom in (mouse wheel)"));
             iZoomOut = Tool("zoomout", L.T("Уменьшить", "Zoom out"));
             iFit = Tool("fit", L.T("Вместить страницу в окно", "Fit page to window"));
@@ -207,13 +218,31 @@ namespace Blick
             iRepeat = Tool("repeat", L.T("Заменить последний скан (Ctrl+R)", "Replace the last scan (Ctrl+R)"));
             iHistory = Tool("history", L.T("История сканов", "Scan history"));
             iTrash = Tool("trash", L.T("Начать новый документ. Файлы останутся в папке.", "Start a new document. Saved files stay in the folder."));
+            navScan = Tool("scan", L.T("Сканирование", "Scanning")); navScan.Selected = true;
+            navDevices = Tool("printer-check", L.T("Устройства", "Devices"));
+            navSettings = Tool("settings", L.T("Настройки", "Settings"));
+            navScan.Text = navScan.AccessibleName; navDevices.Text = navDevices.AccessibleName;
+            navSettings.Text = navSettings.AccessibleName;
+            iHistory.Text = L.T("История", "History");
+            iTrash.Text = L.T("Новый документ", "New document");
+            previousPage = Tool("chevl", L.T("Предыдущая страница", "Previous page"));
+            nextPage = Tool("chevr", L.T("Следующая страница", "Next page"));
+            pageCounter = new GlassLabel("", Theme.FontSmall, Theme.Text2); pageCounter.Align = 1;
+            toolbar.Controls.Add(pageCounter);
+            foreach (IconButton b in new IconButton[] { iZoomOut, iZoomIn, iFit, iRotate, iRepeat, previousPage, nextPage })
+                toolbar.Controls.Add(b);
+            toolbar.Resize += delegate { LayoutToolbar(); };
+            navScan.Click += delegate { ClosePopup(); SetCollapsed(false, true); preview.Focus(); };
+            navDevices.Click += delegate { OpenDevices(navDevices); };
+            navSettings.Click += delegate { ShowSettings(); };
+            previousPage.Click += delegate { SelectPage(sel - 1); };
+            nextPage.Click += delegate { SelectPage(sel + 1); };
             rail.Resize += delegate { LayoutRail(); };
 
             BuildRight();
 
             title = new TitleBar(this); title.Dock = DockStyle.Top; title.Height = D(56);
             title.SetDevice(DeviceText(), deviceState);
-            tips.SetToolTip(title.Gear, L.T("Настройки: язык и масштаб", "Settings: language and scale"));
 
             Controls.Add(center);
             Controls.Add(right);
@@ -221,14 +250,13 @@ namespace Blick
             Controls.Add(title);
 
             // события
-            title.Gear.Click += delegate { ShowSettings(); };
-            title.DeviceClicked = delegate { if (!busy) { deviceState = 0; title.SetDevice(DeviceText(), 0); DetectDevice(); } };
+            title.DeviceClicked = delegate { OpenDevices(title); };
             preview.SelChanged = OnSelChanged;
             preview.CropApply = ApplyPageCrop;
             thumbs.PageDeleted = DeletePage;
             thumbs.PageMoved = MovePage;
             thumbs.AddClicked = delegate { OnScanButton(); };
-            thumbs.PageClicked = delegate(int i) { if (busy) return; sel = i; preview.ResetView(); RefreshAll(); };
+            thumbs.PageClicked = SelectPage;
             iZoomIn.Click += delegate { preview.ZoomBy(1.25f); };
             iZoomOut.Click += delegate { preview.ZoomBy(0.8f); };
             iFit.Click += delegate { preview.ResetView(); };
@@ -246,6 +274,7 @@ namespace Blick
         {
             IconButton b = new IconButton(kind, D(21), false);
             b.Size = new Size(D(44), D(44));
+            b.AccessibleName = tip;
             tips.SetToolTip(b, tip);
             rail.Controls.Add(b);
             return b;
@@ -284,10 +313,15 @@ namespace Blick
             string[] names = L.En
                 ? new string[] { "Preset", "Source", "Color", "Resolution, dpi", "Area", "Format" }
                 : new string[] { "Пресет", "Источник", "Цвет", "Разрешение, dpi", "Область", "Формат" };
+            string[] fieldIcons = { "sliders-horizontal", "layers", "palette", "grip", "file", "file-type" };
+            parameterTitle = new GlassLabel(L.T("Параметры сканирования", "Scan settings"), Theme.FontBig, Theme.Text);
+            basicPage.Controls.Add(parameterTitle);
             basicLabels = new GlassLabel[names.Length];
             for (int i = 0; i < names.Length; i++)
             {
-                basicLabels[i] = MakeLabel(basicPage, names[i].ToUpper(L.Culture));
+                basicLabels[i] = MakeLabel(basicPage, names[i]);
+                basicChips[i].FieldIcon = fieldIcons[i];
+                basicChips[i].AccessibleName = names[i];
                 basicPage.Controls.Add(basicChips[i]);
             }
 
@@ -373,14 +407,38 @@ namespace Blick
 
         void LayoutRail()
         {
-            if (iTrash == null || rail == null) return;
-            int x = (rail.Width - D(44)) / 2, y = D(14);
-            foreach (IconButton b in new IconButton[] { iZoomIn, iZoomOut, iFit, iRotate, iRepeat, iHistory })
+            if (navSettings == null || navSettings.IsDisposed || rail == null) return;
+            bool compact = ClientSize.Width < D(1120);
+            rail.Width = D(compact ? 58 : 174);
+            thumbs.Width = D(compact ? 94 : 132);
+            int y = D(14);
+            foreach (IconButton b in new IconButton[] { navScan, iHistory, navDevices, iTrash })
             {
-                b.SetBounds(x, y, D(44), D(44));
-                y += D(52);
+                b.SetBounds(D(6), y, rail.Width - D(12), D(42)); y += D(48);
             }
-            iTrash.SetBounds(x, rail.Height - D(28) - D(44), D(44), D(44));
+            navSettings.SetBounds(D(6), rail.Height - D(56), rail.Width - D(12), D(42));
+            LayoutToolbar();
+        }
+
+        void LayoutToolbar()
+        {
+            if (pageCounter == null || pageCounter.IsDisposed || toolbar == null) return;
+            int w = Math.Min(D(34), Math.Max(1, (toolbar.Width - D(52)) / 7));
+            int x = (toolbar.Width - 7 * w - D(48)) / 2;
+            foreach (Control control in new Control[] { iZoomOut, iZoomIn, iFit, previousPage, pageCounter, nextPage, iRotate, iRepeat })
+            {
+                int width = control == pageCounter ? D(48) : w;
+                control.SetBounds(x, D(4), width, toolbar.Height - D(8));
+                x += width;
+            }
+        }
+
+        void SelectPage(int index)
+        {
+            if (busy || index < 0 || index >= pages.Count) return;
+            sel = index;
+            preview.ResetView();
+            RefreshAll();
         }
 
         void LayoutRight()
@@ -409,38 +467,49 @@ namespace Blick
             bCollapse.SetBounds(x + w - D(40), top0, D(40), D(38));
             int top = top0 + D(38) + D(16);
             int by = H - ci.Bottom - pad - D(46);
-            int pw = (w - D(10)) * 2 / 5;
-            bPreview.SetBounds(x, by, pw, D(46));
-            bScan.SetBounds(x + pw + D(10), by, w - pw - D(10), D(46));
-            card.SetBounds(x, by - D(10) - D(76), w, D(76));
+            bScan.SetBounds(x, by, w, D(46));
+            bPreview.SetBounds(x, by - D(44), w, D(36));
+            card.SetBounds(x, bPreview.Top - D(8) - D(76), w, D(76));
             int pageH = Math.Max(D(40), card.Top - D(12) - top);
             basicPage.SetBounds(0, top, W, pageH);
             extraPage.SetBounds(0, top, W, pageH);
             basicPage.Visible = tabs.SelectedIndex == 0;
             extraPage.Visible = tabs.SelectedIndex == 1;
 
-            // «Основное»: если места много — блоки равномерно расходятся (но не больше чем на 16 px)
-            int n = basicChips.Length;
-            float need = n * (D(16) + D(6) + D(36)) + (n - 1) * D(12);
-            float f = Math.Min(1f, pageH / need);
-            int extra = pageH > need ? (int)Math.Min(D(16), (pageH - need) / Math.Max(1, n - 1)) : 0;
-            int y = 0;
-            for (int i = 0; i < n; i++)
+            int titleHeight = Math.Min(D(46), pageH / 6);
+            parameterTitle.SetBounds(x, 0, w, titleHeight);
+            int rowHeight = Math.Min(D(52), (pageH - titleHeight) / basicChips.Length);
+            int labelWidth = w * 39 / 100;
+            int y = titleHeight;
+            for (int i = 0; i < basicChips.Length; i++)
             {
-                basicLabels[i].SetBounds(x + D(4), y, w, D(16)); y += D(16) + (int)(D(6) * f);
-                int ch = Math.Max(D(24), (int)(D(36) * f));
-                basicChips[i].SetBounds(x, y, w, ch); y += ch + (int)(D(12) * f) + extra;
+                basicLabels[i].SetBounds(x, y, labelWidth, rowHeight);
+                basicChips[i].SetBounds(x + labelWidth, y + D(2), w - labelWidth, Math.Max(1, rowHeight - D(5)));
+                y += rowHeight;
             }
 
+            int quickTop = y + D(8);
             // «Дополнительно»
             bool timerChips = st.Timer;
             float needE = switches.Length * (D(52) + D(8)) + (timerChips ? D(40) : 0);
             float fe = Math.Min(1f, pageH / needE);
-            int sh = Math.Max(D(38), (int)(D(52) * fe)), gap = Math.Max(D(4), (int)(D(8) * fe));
+            int sh = Math.Max(D(20), (int)(D(52) * fe)), gap = Math.Max(1, (int)(D(8) * fe));
+            bool quick = tabs.SelectedIndex == 0 && pageH - quickTop >= D(84);
             y = 0;
             foreach (SwitchRow s in switches)
             {
-                s.SetBounds(x, y, w, sh); y += sh + gap;
+                if (quick && (s == sOcr || s == sDuplex))
+                {
+                    if (s.Parent != basicPage) basicPage.Controls.Add(s);
+                    s.SetBounds(x, quickTop, w, D(40));
+                    quickTop += D(42);
+                }
+                else
+                {
+                    if (s.Parent != extraPage) extraPage.Controls.Add(s);
+                    s.SetBounds(x, y, w, sh);
+                }
+                y += sh + gap;
             }
             cTimerSec.Visible = timerChips;
             cTimerSec.SetBounds(x, y, w, Math.Max(D(26), (int)(D(32) * fe)));
@@ -511,31 +580,10 @@ namespace Blick
                     ShowSettings();
                 });
             };
-            Point anchor = title.Gear.PointToScreen(new Point(title.Gear.Width - sp.Width, title.Gear.Height + D(6)));
+            Point anchor = navSettings.PointToScreen(new Point(navSettings.Width + D(8), navSettings.Height - sp.Height));
             sp.Location = FitOnScreen(anchor, sp.Size);
             popup = sp;
-            sp.FormClosed += delegate { HideBlur(); };
-            ShowBlur();
             sp.Show(this);
-        }
-
-        // Под всплывающим окном всё приложение слегка размывается
-        void ShowBlur()
-        {
-            if (blur != null && !blur.IsDisposed && blur.Parent == this) { blur.Show(true); return; }
-            Bitmap snap = null;
-            try { snap = WindowShot.Capture(this); } catch { }
-            if (snap == null) return;
-            blur = new BlurOverlay(snap);
-            blur.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            blur.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            Controls.Add(blur);
-            blur.BringToFront();
-        }
-
-        void HideBlur()
-        {
-            if (blur != null && !blur.IsDisposed) blur.Show(false);
         }
 
         void ShowHistory()
@@ -546,8 +594,6 @@ namespace Blick
             Point anchor = iHistory.PointToScreen(new Point(iHistory.Width + D(10), 0));
             hp.Location = FitOnScreen(anchor, hp.Size);
             popup = hp;
-            hp.FormClosed += delegate { HideBlur(); };
-            ShowBlur();
             hp.Show(this);
         }
 
@@ -713,6 +759,9 @@ namespace Blick
             if (preview == null) return;
             thumbs.Pages = pages;
             thumbs.Selected = sel;
+            pageCounter.Text = (sel + 1) + " / " + pages.Count;
+            previousPage.Enabled = !busy && sel > 0;
+            nextPage.Enabled = !busy && sel + 1 < pages.Count;
             thumbs.AllowReorder = st.Format == 0 && st.Merge && duplexPhase == 0;
             thumbs.Invalidate();
             Bitmap show = null;
@@ -1360,17 +1409,43 @@ namespace Blick
             catch { }
         }
 
+        void OpenDevices(Control anchor)
+        {
+            if (busy || series || detecting) return;
+            ContextMenuStrip menu = WorkspaceMenu.Create();
+            foreach (Scanner.Device device in devices)
+            {
+                Scanner.Device choice = device;
+                ToolStripMenuItem item = new ToolStripMenuItem(device.Name);
+                item.Checked = deviceState == 1 && (requestedDevice == device.Id || (requestedDevice == null && deviceName == device.Name));
+                item.Click += delegate { requestedDevice = choice.Id; DetectDevice(); };
+                menu.Items.Add(item);
+            }
+            if (devices.Count > 0) menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(L.T("Обновить список", "Refresh devices"), null, delegate { DetectDevice(); });
+            Point at = anchor == title ? new Point(NavWidth + D(10), title.Height) : new Point(anchor.Width, 0);
+            menu.Show(anchor, at);
+        }
+
         void DetectDevice()
         {
+            if (detecting || busy || series) return;
+            detecting = true;
+            deviceState = 0;
+            title.SetDevice(DeviceText(), deviceState);
+            List<Scanner.Device> found = new List<Scanner.Device>();
+            string id = requestedDevice;
             Thread th = new Thread(delegate()
             {
                 string name = null, diag = null;
-                try { name = Scanner.FindName(out diag); }
+                try { name = Scanner.FindName(id, found, out diag); }
                 catch (Exception ex) { diag = ex.Message; }
                 try
                 {
                     BeginInvoke((MethodInvoker)delegate
                     {
+                        detecting = false;
+                        devices = found;
                         if (name != null)
                         {
                             deviceName = name; deviceState = 1;

@@ -9,7 +9,7 @@ if not exist "%CSC%" (
   exit /b 1
 )
 echo Building Blick...
-"%CSC%" /nologo /target:winexe /optimize+ /codepage:65001 /out:Blick.exe /win32icon:blick.ico /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:Microsoft.VisualBasic.dll Theme.cs Controls.cs Preview.cs Imaging.cs Scan.cs MainForm.cs
+"%CSC%" /nologo /target:winexe /optimize+ /codepage:65001 /out:Blick.exe /win32icon:blick.ico /resource:assets\brand\mark-dark.png,BlickMark /resource:assets\lucide\atlas.png,Lucide /resource:assets\fonts\Inter-Regular.ttf,Inter-Regular /resource:assets\fonts\Inter-Bold.ttf,Inter-Bold /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:Microsoft.VisualBasic.dll Theme.cs Controls.cs Preview.cs Imaging.cs Scan.cs MainForm.cs
 if errorlevel 1 (
   echo.
   echo Build failed. See the compiler output above.

@@ -80,7 +80,15 @@ namespace Blick
             return null;
         }
 
-        static object FindInfo(out string diag)
+        public sealed class Device
+        {
+            public readonly string Id, Name;
+            public Device(string id, string name) { Id = id; Name = name; }
+        }
+
+        // Read and write the selected identity only on the WIA worker.
+        static string selectedId;
+        static object FindInfo(List<Device> devices, out string diag)
         {
             object mgr = CreateManager(out diag);
             if (mgr == null) return null;
@@ -98,8 +106,14 @@ namespace Blick
                     string name = InfoName(info) ?? L.T("без имени", "unnamed");
                     seen.Add(name + (type == 1 ? L.T(" (сканер)", " (scanner)") : type == 2 ? L.T(" (камера)", " (camera)") : L.T(" (тип ", " (type ") + type + ")"));
                     if (type != 1) continue;
-                    if (best == null) best = info;
-                    if (name.IndexOf("pantum", StringComparison.OrdinalIgnoreCase) >= 0) { best = info; break; }
+                    string id = Convert.ToString(Get(info, "DeviceID"));
+                    if (devices != null) devices.Add(new Device(id, name));
+                    if (selectedId != null)
+                    {
+                        if (id == selectedId) best = info;
+                    }
+                    else if (best == null || name.IndexOf("pantum", StringComparison.OrdinalIgnoreCase) >= 0)
+                        best = info;
                 }
             }
             catch (Exception ex)
@@ -108,7 +122,7 @@ namespace Blick
                 return null;
             }
             if (best == null)
-                diag = seen.Count == 0
+                diag = selectedId != null ? L.T("Выбранный сканер отключён.", "The selected scanner is offline.") : seen.Count == 0
                     ? L.T("Windows не видит ни одного сканера (WIA-устройств: 0). Добавьте сканер в Windows: Параметры → Принтеры и сканеры → Добавить устройство.", "Windows sees no scanners (WIA devices: 0). Add the scanner in Windows: Settings → Printers & scanners → Add device.")
                     : L.T("WIA видит только: ", "WIA only sees: ") + string.Join(", ", seen.ToArray()) + L.T(". Сканера среди них нет.", ". There is no scanner among them.");
             return best;
@@ -166,7 +180,7 @@ namespace Blick
             if (cInfo == null)
             {
                 string diag;
-                object info = FindInfo(out diag);
+                object info = FindInfo(null, out diag);
                 if (info == null) throw new ScanException(L.T("Сканер не найден. ", "Scanner not found. ") + diag);
                 cInfo = info;
                 cName = InfoName(info) ?? L.T("Сканер", "Scanner");
@@ -179,18 +193,19 @@ namespace Blick
         }
 
         // Ищем сканер при запуске и по щелчку на названии устройства.
-        public static string FindName(out string diag)
+        public static string FindName(string requestedId, List<Device> devices, out string diag)
         {
             string name = null, d = null;
             OnWorker(delegate
             {
                 ResetCache();
-                object info = FindInfo(out d);
+                selectedId = requestedId;
+                object info = FindInfo(devices, out d);
                 if (info == null) return;
                 cInfo = info;
                 cName = InfoName(info) ?? L.T("Сканер", "Scanner");
-                name = cName;
-                try { EnsureConnected(); } catch { cDev = null; cItem = null; }
+                try { EnsureConnected(); name = cName; }
+                catch (Exception ex) { d = Root(ex).Message; cDev = null; cItem = null; }
             }, true);
             diag = d;
             return name;
