@@ -338,7 +338,7 @@ namespace Blick
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+            g.TextRenderingHint = TextRenderingHint.AntiAlias;
             g.CompositingQuality = CompositingQuality.HighSpeed;
         }
 
@@ -384,11 +384,11 @@ namespace Blick
             using (SolidBrush b = new SolidBrush(c)) g.FillEllipse(b, cx - dia / 2f, cy - dia / 2f, dia, dia);
         }
 
-        // текст (только GDI+: обычный GDI-текст на стекле становится прозрачным)
-        static readonly StringFormat typo = StringFormat.GenericTypographic;
+        // Use the same spacing for measurement and painting, including at fractional DPI.
+        static readonly StringFormat textFormat = StringFormat.GenericDefault;
         static StringFormat Fmt(int align, bool vcenter, bool wrap, bool ellipsis)
         {
-            StringFormat sf = new StringFormat(typo);
+            StringFormat sf = new StringFormat(textFormat);
             sf.Alignment = align == 1 ? StringAlignment.Center : (align == 2 ? StringAlignment.Far : StringAlignment.Near);
             sf.LineAlignment = vcenter ? StringAlignment.Center : StringAlignment.Near;
             sf.Trimming = ellipsis ? StringTrimming.EllipsisCharacter : StringTrimming.None;

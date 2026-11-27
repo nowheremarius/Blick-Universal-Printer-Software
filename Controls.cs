@@ -419,12 +419,11 @@ namespace Blick
             int sw = Theme.D(40), sh = Theme.D(22);
             int pad = Theme.D(14);
             int textW = Width - pad * 3 - sw;
-            ResetMarqueeFlag();
             bool detail = Height >= Theme.D(38);
             int ty = (Height - Theme.D(detail ? 36 : 19)) / 2;
-            DrawMarquee(g, Title, Theme.FontChip, new RectangleF(pad, ty, textW, Theme.D(19)), Enabled ? Theme.Text : Theme.Dim, hover, false);
+            Theme.Write(g, Title, Theme.FontBody, new RectangleF(pad, ty, textW, Theme.D(19)), Enabled ? Theme.Text : Theme.Dim, 0, true);
             string sub = ShowDisabledSub && DisabledSub != null ? DisabledSub : Sub;
-            if (detail) DrawMarquee(g, sub, Theme.FontSmall, new RectangleF(pad, ty + Theme.D(19), textW, Theme.D(17)), Enabled ? Theme.Muted : Theme.Dim, hover, false);
+            if (detail) Theme.Write(g, sub, Theme.FontSmall, new RectangleF(pad, ty + Theme.D(19), textW, Theme.D(17)), Enabled ? Theme.Muted : Theme.Dim, 0, true);
 
             RectangleF s = new RectangleF(Width - pad - sw, (Height - sh) / 2f, sw, sh);
             Color track = Enabled ? Theme.Mix(Theme.Inset, Theme.Selection, knob) : Theme.Track;
