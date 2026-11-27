@@ -99,6 +99,19 @@ namespace Blick
                 while (Field<bool>(form, "detecting") && wait.ElapsedMilliseconds < 6000)
                 { Application.DoEvents(); System.Threading.Thread.Sleep(16); }
                 Call(form, "SetCollapsed", false, false);
+                foreach (ToolStripDropDownCloseReason reason in new ToolStripDropDownCloseReason[] {
+                    ToolStripDropDownCloseReason.AppClicked, ToolStripDropDownCloseReason.Keyboard,
+                    ToolStripDropDownCloseReason.ItemClicked })
+                {
+                    using (ContextMenuStrip menu = WorkspaceMenu.Create())
+                    {
+                        menu.Items.Add("PDF");
+                        menu.Show(form, new Point(12, 12));
+                        menu.Close(reason);
+                        Application.DoEvents();
+                        if (!menu.IsDisposed) throw new Exception("Closed dropdown was not disposed");
+                    }
+                }
                 Settings settings = Field<Settings>(form, "st");
                 settings.Tab = 0;
                 settings.Lang = "ru"; L.En = false;

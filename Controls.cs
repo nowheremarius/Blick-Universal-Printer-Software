@@ -258,7 +258,8 @@ namespace Blick
             menu.Renderer = new ToolStripProfessionalRenderer(new MenuColors());
             menu.ForeColor = Theme.Text;
             menu.Font = Theme.FontBody;
-            menu.Closed += delegate { menu.Dispose(); };
+            // WinForms still uses the dropdown handle after raising Closed.
+            menu.Closed += delegate { menu.BeginInvoke((MethodInvoker)menu.Dispose); };
             return menu;
         }
     }
