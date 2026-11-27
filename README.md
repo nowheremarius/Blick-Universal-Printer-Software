@@ -26,7 +26,7 @@ Turn on the scanner and make sure its WIA driver is installed. Blick looks for a
 3. To check placement on the glass, click **Preview**. This takes a separate 150 dpi flatbed scan. Drag a rectangle on the preview to scan just that part. For a full sheet or a feeder batch, you can go straight to **Scan**.
 4. Click **Scan**. Pages appear as thumbnails to the left of the preview. Blick saves the files to the destination folder. It uses names like `2026-11-25_001.pdf` and picks the next free number across PDF, JPG and PNG files for that date.
 
-![Flatbed scanning with the source, resolution, area and destination visible](screenshots/basic.png)
+![Flatbed scanning with the source, resolution, area and destination visible](screenshots/blick-1.1-workspace.png)
 
 | Preset | Color and resolution | Area and format | Processing |
 | --- | --- | --- | --- |
@@ -45,7 +45,7 @@ The source is chosen separately. The resolution buttons request 150, 300, 600 or
 - **A stack without a feeder.** Enable **Scan on a timer** and choose 5, 10 or 15 seconds between scans. Change the sheet during the countdown. Press Esc to stop the series.
 - **Searchable text.** Choose PDF and enable **Recognize text** before scanning. The PDF keeps the scanned image and adds the words Windows recognizes as a searchable layer. If recognition stalls for two minutes on a page, Blick stops waiting and keeps the image without a text layer.
 
-![The More tab with PDF, OCR, splitting, duplex and timer options](screenshots/more.png)
+![The More tab with PDF, OCR, splitting, duplex and timer options](screenshots/blick-1.1-options.png)
 
 ### Edit a page or repeat a scan
 
@@ -104,7 +104,7 @@ Blick сканирует документы, чеки и фотографии в
 3. Если лист лежит на стекле, кнопка «Просмотр» позволяет проверить его положение. Для этого Blick отдельно сканирует стекло при 150 dpi. На полученном изображении можно обвести нужный участок. Для целого листа или пачки в податчике просмотр можно пропустить.
 4. Нажать «Сканировать». Слева от предпросмотра появятся миниатюры страниц. Файлы сохранятся в выбранную папку с именами вида `2026-11-25_001.pdf`. При выборе следующего номера Blick учитывает все PDF, JPG и PNG за эту дату.
 
-![Главное окно Blick. Справа видны источник, разрешение, область сканирования и папка для файлов](screenshots/basic.png)
+![Главное окно Blick. Справа видны источник, разрешение, область сканирования и папка для файлов](screenshots/blick-1.1-workspace.png)
 
 | Пресет | Цвет и разрешение | Область и формат | Обработка |
 | --- | --- | --- | --- |
@@ -123,7 +123,7 @@ Blick сканирует документы, чеки и фотографии в
 - **Снять пачку со стекла по таймеру.** Включить «Сканировать по таймеру» и выбрать паузу между сканами в 5, 10 или 15 секунд. Пока идёт отсчёт, поменять лист. Esc останавливает серию.
 - **Получить PDF с поиском.** До сканирования выбрать PDF и включить «Распознавать текст». Страница сохранит свой внешний вид. В программе для чтения PDF можно будет искать и выделять распознанные слова. Если распознавание страницы зависнет на две минуты, Blick завершит ожидание и сохранит изображение без текстового слоя.
 
-![Дополнительные настройки. Здесь включаются общий PDF, распознавание текста, разделение, двусторонний режим и таймер](screenshots/more.png)
+![Дополнительные настройки. Здесь включаются общий PDF, распознавание текста, разделение, двусторонний режим и таймер](screenshots/blick-1.1-options.png)
 
 ### Как поправить страницу
 
