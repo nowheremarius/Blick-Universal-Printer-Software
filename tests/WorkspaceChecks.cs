@@ -134,6 +134,7 @@ namespace Blick
                     if (Field<PreviewPanel>(form, "preview").Width < Theme.D(160)) throw new Exception("Preview too narrow at " + scale);
                     if (!Field<IconButton>(form, "nextPage").Enabled) throw new Exception("Lost page navigation");
                     form.Refresh(); Application.DoEvents();
+                    if (scale == 75) Capture(form, Path.Combine(folder, "compact-75.png"));
                 }
                 L.En = true;
                 Call(form, "RebuildUi");

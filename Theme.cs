@@ -295,13 +295,13 @@ namespace Blick
             string r = FontLoader.Regular, s = FontLoader.Semi, h = FontLoader.Heavy;
             FontStyle sb = FontLoader.SemiNeedsBold ? FontStyle.Bold : FontStyle.Regular;
             FontStyle hb = FontLoader.HeavyNeedsBold ? FontStyle.Bold : FontStyle.Regular;
-            FontLabel = FontLoader.Make(r, 8.5f * u, FontStyle.Regular);
-            FontChip = FontLoader.Make(s, 9f * u, sb);
-            FontBody = FontLoader.Make(r, 9.5f * u, FontStyle.Regular);
-            FontSmall = FontLoader.Make(r, 8.5f * u, FontStyle.Regular);
+            FontLabel = FontLoader.Make(r, Math.Max(8f, 9f * u), FontStyle.Regular);
+            FontChip = FontLoader.Make(s, Math.Max(8f, 9f * u), sb);
+            FontBody = FontLoader.Make(r, Math.Max(8f, 9.5f * u), FontStyle.Regular);
+            FontSmall = FontLoader.Make(r, Math.Max(8f, 9f * u), FontStyle.Regular);
             FontTitle = FontLoader.Make(h, 16f * u, hb);
             FontLogo = FontLoader.Make(s, 12f * u, sb);
-            FontBtn = FontLoader.Make(s, 9.5f * u, sb);
+            FontBtn = FontLoader.Make(s, Math.Max(8f, 9.5f * u), sb);
             FontBig = FontLoader.Make(s, 12f * u, sb);
             FontHuge = FontLoader.Make(h, 30f * u, hb);
         }
@@ -338,7 +338,7 @@ namespace Blick
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            g.TextRenderingHint = TextRenderingHint.AntiAlias;
+            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
             g.CompositingQuality = CompositingQuality.HighSpeed;
         }
 
